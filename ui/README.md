@@ -1,3 +1,29 @@
+# UI: LoanRiskCalculator (quickstart)
+
+This folder contains the Next/Vite UI for the LoanRiskCalculator demo.
+
+Run locally (development):
+
+```bash
+cd ui
+npm install
+npm run dev
+# open http://localhost:3000
+```
+
+Batch input
+- Switch the form to "Batch" mode and paste a JSON array of application objects.
+- Use `leadType: "others"` or `state: "Other"` to flag new/unmapped categories — the UI shows a warning.
+
+Build for production
+```bash
+cd ui
+npm install
+npm run build
+```
+
+Notes
+- The UI reads the API base URL from `NEXT_PUBLIC_API_BASE_URL` (default `http://localhost:8000`).
 # vinext-starter
 
 A clean full-stack starter running on

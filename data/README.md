@@ -1,3 +1,13 @@
+# Data inputs (quick)
+
+Place the original dataset files in `data/raw/` before running the pipeline or demo UI. These files are NOT included in the repository.
+
+Required files:
+- `data/raw/loan.parquet`
+- `data/raw/payment.parquet`
+- `data/raw/clarity_underwriting_variables.parquet`
+
+The `data/README.md` here is intentionally minimal — full data preparation steps are in `documentation/DATA_PREPARATION.md`.
 # Data layout
 
 Place the three immutable source datasets supplied for the assessment under
