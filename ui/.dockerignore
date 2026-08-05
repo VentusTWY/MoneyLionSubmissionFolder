@@ -1,0 +1,9 @@
+.git
+node_modules
+.vinext
+dist
+.wrangler
+outputs
+work
+npm-debug.log*
+.DS_Store

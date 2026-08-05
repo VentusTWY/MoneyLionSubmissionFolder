@@ -1,0 +1,5 @@
+drift_warning_psi: 0.20
+batch_limit: 100
+risk_bands:
+  low: 0.40
+  high: 0.70
