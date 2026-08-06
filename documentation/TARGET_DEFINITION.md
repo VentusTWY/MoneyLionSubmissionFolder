@@ -6,6 +6,12 @@ The assessment asks for a model that predicts the risk of a loan application, bu
 
 This is a credit-risk target. It is not a prediction of whether an application will be approved or funded.
 
+## Objective and operating contract
+
+The model estimates the probability of an adverse repayment outcome for a funded-loan population. It is scored **before pricing**, so `apr` and `originallyScheduledPaymentAmount` are excluded to prevent a circular dependency. The target is `1` for Internal/External Collection, Settled Bankruptcy, or Charged Off and `0` for Paid Off Loan. Only mature, funded, unambiguous outcomes enter supervised learning; payment records are isolated from prediction-time features.
+
+Data Scientists own modelling hypotheses, experiments, and candidate evidence. They submit a versioned bundle containing the model, ordered feature schema, configuration, proposed threshold, metrics, dependencies, and training-data cutoff. ML Engineers own reproducibility checks, serving compatibility, promotion controls, deployment, observability, and rollback. Product and risk owners approve the prediction point, target policy, business threshold, and promotion limits.
+
 ## Prediction Point
 
 The primary POC prediction is made before pricing and before the lending decision or any repayment outcomes are known. Model features must therefore be limited to information available at that point.

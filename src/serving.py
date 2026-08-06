@@ -30,7 +30,8 @@ class LoanRiskPredictor:
         self.schema = json.loads((self.version_dir / "feature_schema.json").read_text())
         self.contract = self.manifest["feature_contract"]
         self.version = self.manifest["version"]
-        self.threshold = float(self.manifest["decision_threshold"])
+        self.review_threshold = float(self.manifest.get("review_threshold", self.manifest["decision_threshold"]))
+        self.reject_threshold = float(self.manifest.get("reject_threshold", self.review_threshold))
 
     @classmethod
     def from_registry(cls, registry_root: str | Path) -> "LoanRiskPredictor":
@@ -52,10 +53,16 @@ class LoanRiskPredictor:
             band = "medium"
         else:
             band = "high"
+        if probability >= self.reject_threshold:
+            decision = "reject"
+        elif probability >= self.review_threshold:
+            decision = "review"
+        else:
+            decision = "pass"
         return {
             "adverse_probability": probability,
             "risk_band": band,
-            "decision": "review" if probability >= self.threshold else "pass",
+            "decision": decision,
             "model_version": self.version,
             "feature_contract_version": self.contract["name"],
         }
@@ -142,7 +149,9 @@ def create_app(registry_root: str | Path = "registry", batch_limit: int = 100):
         return {
             "model_version": predictor.version,
             "feature_contract_version": predictor.contract["name"],
-            "decision_threshold": predictor.threshold,
+            "decision_threshold": predictor.review_threshold,
+            "review_threshold": predictor.review_threshold,
+            "reject_threshold": predictor.reject_threshold,
         }
 
     @app.get("/health/live")

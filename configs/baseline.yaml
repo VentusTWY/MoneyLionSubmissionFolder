@@ -49,5 +49,6 @@ training:
 
 evaluation:
   threshold: 0.50
+  reject_threshold: 0.75
 
 output_dir: artifacts/prepricing_lightgbm

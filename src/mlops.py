@@ -77,7 +77,12 @@ class LocalRegistry:
     def __init__(self, root: str | Path):
         self.root = Path(root)
         self.versions = self.root / "versions"
-        self.versions.mkdir(parents=True, exist_ok=True)
+        try:
+            self.versions.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            # Support read-only registry mounts in containerized demos.
+            if not self.versions.exists():
+                raise
 
     @property
     def champion_file(self) -> Path:

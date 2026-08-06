@@ -44,4 +44,20 @@ Notes
 - The UI supports `Single` and `Batch` modes. Use `leadType: "others"` or `state: "Other"` to indicate new/unmapped categories; the UI will display a warning.
 - For full implementation details, model metrics, and caveats see `documentation/`.
 
+> TODO: remove the PDF file from the repo tomorrow and push the final branch.
+
 If you want, I can also add a `DEMO.md` with a one-command demo script or prepare a minimal Docker image for the UI only.
+
+Retraining demo
+----------------
+
+To demonstrate retraining during your presentation, run the pipeline to train a new challenger and inspect the registry. The included helper script automates the common steps:
+
+```bash
+./scripts/retrain_demo.sh
+```
+
+Notes:
+- Run the script from the repository root. It requires the Python environment and dependencies used by the pipeline (see above `python -m pip install -r requirements.txt`).
+- Each pipeline invocation creates a timestamped candidate under `registry/versions/`. The script prints recent versions, the active `registry/champion.json`, and the tail of `registry/audit.jsonl`.
+- If Docker Compose is running the API, restart the API container to pick up a new champion: `docker compose restart api`.

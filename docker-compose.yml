@@ -11,7 +11,7 @@ services:
     environment:
       UI_ORIGINS: http://localhost:3000
     volumes:
-      - ./registry:/app/registry:ro
+      - ./registry:/app/registry
     healthcheck:
       test:
         - CMD

@@ -7,3 +7,9 @@ __pycache__/
 artifacts/
 registry/
 data/raw/
+node_modules/
+ui/node_modules/
+ui/.wrangler/
+ui/.next/
+ui/dist/
+ui/build/

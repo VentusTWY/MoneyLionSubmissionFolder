@@ -99,6 +99,8 @@ def execute(
         "feature_contract": config["feature_contract"],
         "target_name": config["label"]["target_name"],
         "decision_threshold": metrics["threshold"],
+        "review_threshold": float(config["evaluation"]["threshold"]),
+        "reject_threshold": float(config["evaluation"].get("reject_threshold", config["evaluation"]["threshold"])),
         "source_checksums": {
             name: sha256(path) for name, path in config["data"].items()
         },

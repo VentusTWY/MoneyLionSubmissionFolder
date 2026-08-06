@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 type Prediction = {
   adverse_probability: number;
   risk_band: "low" | "medium" | "high";
-  decision: "pass" | "review";
+  decision: "pass" | "review" | "reject";
   model_version: string;
   feature_contract_version: string;
   request_id: string;
@@ -16,6 +16,15 @@ type ModelInfo = {
   model_version: string;
   feature_contract_version: string;
   decision_threshold: number;
+  review_threshold: number;
+  reject_threshold: number;
+};
+
+type ServiceMetrics = {
+  requests: number;
+  failures: number;
+  latencySeconds: number;
+  bands: { low: number; medium: number; high: number };
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -35,6 +44,7 @@ export default function Home() {
   const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [model, setModel] = useState<ModelInfo | null>(null);
   const [serviceReady, setServiceReady] = useState(false);
+  const [metrics, setMetrics] = useState<ServiceMetrics | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState<"single" | "batch">("single");
@@ -51,10 +61,11 @@ export default function Home() {
         if (!response.ok) throw new Error("Model unavailable");
         return response.json();
       }),
+      refreshMetrics(),
     ])
-      .then(([, modelInfo]) => {
+      .then(([_, modelInfo]) => {
         setServiceReady(true);
-        setModel(modelInfo);
+        setModel(modelInfo as ModelInfo);
       })
       .catch(() => setServiceReady(false));
   }, []);
@@ -78,6 +89,39 @@ export default function Home() {
     }
   }
 
+  function parseMetrics(text: string): ServiceMetrics {
+    const output: ServiceMetrics = {
+      requests: 0,
+      failures: 0,
+      latencySeconds: 0,
+      bands: { low: 0, medium: 0, high: 0 },
+    };
+    for (const line of text.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const [key, value] = trimmed.split(/\s+/);
+      const count = Number(value ?? 0);
+      if (key.startsWith("ml_prediction_requests_total")) {
+        output.requests = count;
+      } else if (key.startsWith("ml_prediction_failures_total")) {
+        output.failures = count;
+      } else if (key.startsWith("ml_prediction_latency_seconds_sum")) {
+        output.latencySeconds = count;
+      } else if (key.startsWith("ml_prediction_score_band_total")) {
+        if (key.includes('band="low"')) output.bands.low = count;
+        if (key.includes('band="medium"')) output.bands.medium = count;
+        if (key.includes('band="high"')) output.bands.high = count;
+      }
+    }
+    return output;
+  }
+
+  async function refreshMetrics() {
+    const response = await fetch(`${API_BASE}/metrics`);
+    if (!response.ok) throw new Error("Metrics unavailable");
+    setMetrics(parseMetrics(await response.text()));
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
@@ -99,6 +143,7 @@ export default function Home() {
         const body = await response.json();
         if (!response.ok) throw new Error(body.detail ?? "Prediction request failed");
         setPrediction(body);
+        await refreshMetrics();
       } else {
         // Batch mode: expect JSON array of application objects
         let payload: any;
@@ -123,6 +168,7 @@ export default function Home() {
         if (!Array.isArray(body)) throw new Error("Batch response malformed");
         setBatchResults(body as Prediction[]);
         setPrediction(body[0] ?? null);
+        await refreshMetrics();
       }
     } catch (requestError) {
       setPrediction(null);
@@ -164,8 +210,22 @@ export default function Home() {
           <span>Active model</span>
           <strong>{model?.model_version ?? "Waiting for service"}</strong>
           <div><small>Contract</small><b>{model?.feature_contract_version ?? "—"}</b></div>
-          <div><small>Review threshold</small><b>{model ? `${Math.round(model.decision_threshold * 100)}%` : "—"}</b></div>
+          <div><small>Review threshold</small><b>{model ? `${Math.round(model.review_threshold * 100)}%` : "—"}</b></div>
+          <div><small>Reject threshold</small><b>{model ? `${Math.round(model.reject_threshold * 100)}%` : "—"}</b></div>
         </div>
+        {metrics ? (
+          <div className="metrics-card">
+            <span>Runtime metrics</span>
+            <div className="metrics-row">
+              <small>Requests <b className="metric-good">{metrics.requests}</b></small>
+              <small>Failures <b className="metric-bad">{metrics.failures}</b></small>
+              <small>Latency <b>{metrics.latencySeconds.toFixed(2)}s</b></small>
+            </div>
+            <div className="metrics-row metrics-bands">
+              <small>Risk bands <b>low {metrics.bands.low}</b> / <b>medium {metrics.bands.medium}</b> / <b>high {metrics.bands.high}</b></small>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="workspace" aria-label="Loan risk workspace">
@@ -200,7 +260,7 @@ export default function Home() {
                 <option value="lead">Standard lead</option>
                 <option value="organic">Organic</option>
                 <option value="prescreen">Pre-screen</option>
-                <option value="others">Others (new)</option>
+                <option value="others">Others</option>
               </select>
             </label>
             <label>
@@ -263,7 +323,7 @@ export default function Home() {
                 <option value="WV">West Virginia</option>
                 <option value="WI">Wisconsin</option>
                 <option value="WY">Wyoming</option>
-                <option value="Other">Other (new)</option>
+                <option value="Other">Unknown</option>
               </select>
             </label>
           </div>
@@ -282,7 +342,6 @@ export default function Home() {
                 Warning: one or more fields use an unknown category ("Others" or "Other"). These indicate new or unmapped data and may produce unexpected results.
               </p>
             )}
-          </div>
 
           <label className="check-row">
             <input type="checkbox" checked={form.has_clarity_report} onChange={(event) => updateField("has_clarity_report", event.target.checked)} />
@@ -312,7 +371,13 @@ export default function Home() {
               </div>
               <div className="explanation">
                 <span>Decision context</span>
-                <p>{prediction.decision === "review" ? "This score meets or exceeds the review threshold. Route the application for an approved manual assessment." : "This score is below the configured review threshold. Continue through the standard decision workflow."}</p>
+                <p>
+                  {prediction.decision === "reject"
+                    ? "This score exceeds the reject threshold. Decline or exit the application."
+                    : prediction.decision === "review"
+                    ? "This score falls in the review zone. Route the application for a manual assessment."
+                    : "This score is below the review threshold. Continue through the standard decision workflow."}
+                </p>
               </div>
               <dl className="trace-details">
                 <div><dt>Model version</dt><dd>{prediction.model_version}</dd></div>
