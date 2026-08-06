@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Automated loan-risk ML platform architecture</title>
+  <desc id="desc">Four connected pipelines for offline model updates, online loan decisions, monitoring and feedback, and CI/CD delivery.</desc>
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#0f172a" flood-opacity="0.09"/>
+    </filter>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/></marker>
+    <marker id="arrow-teal" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,5 L0,10 Z" fill="#0f766e"/></marker>
+    <marker id="arrow-amber" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,5 L0,10 Z" fill="#d97706"/></marker>
+    <marker id="arrow-purple" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,5 L0,10 Z" fill="#7c3aed"/></marker>
+    <style>
+      .title{font:700 30px Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#0f172a}.subtitle{font:400 15px Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#64748b}.lane-title{font:700 16px Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#fff}.lane-note{font:500 13px Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.card-title{font:700 15px Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#0f172a}.card-copy{font:400 12px Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#475569}.edge-label{font:600 11px Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#475569;paint-order:stroke;stroke:#f8fafc;stroke-width:5px;stroke-linejoin:round}.step{font:700 14px Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#fff}.legend{font:600 11px Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#475569}
+    </style>
+  </defs>
+
+  <rect width="1600" height="1000" fill="#f8fafc"/>
+  <text x="48" y="53" class="title">Automated loan-risk ML platform</text>
+  <text x="48" y="78" class="subtitle">Immutable challengers, gated promotion, synchronous scoring, and a closed monitoring loop</text>
+
+  <g transform="translate(1120 43)">
+    <line x1="0" y1="0" x2="32" y2="0" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow-blue)"/><text x="43" y="4" class="legend">data / artifact</text>
+    <line x1="145" y1="0" x2="177" y2="0" stroke="#0f766e" stroke-width="3" marker-end="url(#arrow-teal)"/><text x="188" y="4" class="legend">online request</text>
+    <line x1="0" y1="28" x2="32" y2="28" stroke="#d97706" stroke-width="3" stroke-dasharray="7 5" marker-end="url(#arrow-amber)"/><text x="43" y="32" class="legend">feedback</text>
+    <line x1="145" y1="28" x2="177" y2="28" stroke="#7c3aed" stroke-width="3" stroke-dasharray="7 5" marker-end="url(#arrow-purple)"/><text x="188" y="32" class="legend">delivery</text>
+  </g>
+
+  <!-- Offline ML lifecycle -->
+  <rect x="48" y="105" width="1504" height="258" rx="18" fill="#eff6ff" stroke="#bfdbfe"/>
+  <rect x="48" y="105" width="146" height="258" rx="18" fill="#1e3a8a"/>
+  <rect x="48" y="329" width="146" height="34" fill="#1e3a8a"/>
+  <circle cx="78" cy="142" r="16" fill="#3b82f6"/><text x="78" y="147" text-anchor="middle" class="step">1</text>
+  <text x="103" y="147" class="lane-title">OFFLINE ML</text>
+  <text x="72" y="181" class="lane-title"><tspan x="72">MODEL</tspan><tspan x="72" dy="22">UPDATE</tspan></text>
+  <text x="72" y="330" class="lane-note" fill="#bfdbfe"><tspan x="72">scheduled or</tspan><tspan x="72" dy="18">evidence-triggered</tspan></text>
+
+  <g filter="url(#shadow)">
+    <rect x="225" y="160" width="205" height="112" rx="12" fill="#fff" stroke="#bfdbfe"/>
+    <rect x="476" y="160" width="205" height="112" rx="12" fill="#fff" stroke="#bfdbfe"/>
+    <rect x="727" y="160" width="205" height="112" rx="12" fill="#fff" stroke="#bfdbfe"/>
+    <rect x="978" y="160" width="205" height="112" rx="12" fill="#fff" stroke="#bfdbfe"/>
+    <rect x="1229" y="145" width="260" height="142" rx="12" fill="#fff" stroke="#93c5fd" stroke-width="2"/>
+  </g>
+  <rect x="241" y="177" width="36" height="36" rx="9" fill="#dbeafe"/><path d="M251 187h16v15h-16zm3-4h10v4h-10zm0 19v4m10-4v4" fill="none" stroke="#2563eb" stroke-width="2"/>
+  <text x="291" y="190" class="card-title"><tspan x="291">Immutable data</tspan><tspan x="291" dy="19">snapshots</tspan></text><text x="241" y="238" class="card-copy"><tspan x="241">S3 raw + mature outcomes</tspan><tspan x="241" dy="17">checksums • lineage • cutoffs</tspan></text>
+  <rect x="492" y="177" width="36" height="36" rx="9" fill="#dbeafe"/><path d="M501 195l6 6 12-15" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="542" y="190" class="card-title"><tspan x="542">Validate &amp;</tspan><tspan x="542" dy="19">build features</tspan></text><text x="492" y="238" class="card-copy"><tspan x="492">contracts • maturity • leakage</tspan><tspan x="492" dy="17">pre_pricing_v1</tspan></text>
+  <rect x="743" y="177" width="36" height="36" rx="9" fill="#dbeafe"/><path d="M751 204l6-9 6 5 8-14" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="793" y="190" class="card-title"><tspan x="793">Train &amp; evaluate</tspan><tspan x="793" dy="19">challenger</tspan></text><text x="743" y="238" class="card-copy"><tspan x="743">LightGBM + baselines</tspan><tspan x="743" dy="17">chronological holdouts</tspan></text>
+  <rect x="994" y="177" width="36" height="36" rx="9" fill="#dbeafe"/><path d="M1003 195l6 6 12-15" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="1044" y="190" class="card-title"><tspan x="1044">Promotion</tspan><tspan x="1044" dy="19">gates</tspan></text><text x="994" y="238" class="card-copy"><tspan x="994">quality • stability • fairness</tspan><tspan x="994" dy="17">contract + smoke tests</tspan></text>
+  <rect x="1245" y="162" width="36" height="36" rx="9" fill="#dbeafe"/><path d="M1253 174c0-4 20-4 20 0s-20 4-20 0zm0 0v12c0 4 20 4 20 0v-12m-20 6c0 4 20 4 20 0" fill="none" stroke="#2563eb" stroke-width="2"/>
+  <text x="1295" y="176" class="card-title"><tspan x="1295">Model registry</tspan><tspan x="1295" dy="19">+ champion pointer</tspan></text><text x="1245" y="225" class="card-copy"><tspan x="1245">S3 artifacts + manifests</tspan><tspan x="1245" dy="17">audit log • prior champion</tspan></text><rect x="1245" y="254" width="106" height="20" rx="10" fill="#dcfce7"/><text x="1298" y="268" text-anchor="middle" class="legend" fill="#166534">APPROVED ONLY</text>
+
+  <path d="M430 216H466" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow-blue)"/><path d="M681 216H717" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow-blue)"/><path d="M932 216H968" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow-blue)"/><path d="M1183 216H1219" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow-blue)"/>
+  <path d="M1080 272V323H829V282" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#arrow-amber)"/><text x="952" y="316" text-anchor="middle" class="edge-label">failed candidate: retain evidence, do not deploy</text>
+
+  <!-- Online decision -->
+  <rect x="48" y="385" width="1504" height="202" rx="18" fill="#f0fdfa" stroke="#99f6e4"/>
+  <rect x="48" y="385" width="146" height="202" rx="18" fill="#115e59"/><rect x="48" y="553" width="146" height="34" fill="#115e59"/>
+  <circle cx="78" cy="422" r="16" fill="#14b8a6"/><text x="78" y="427" text-anchor="middle" class="step">2</text><text x="103" y="427" class="lane-title">ONLINE</text><text x="72" y="462" class="lane-title"><tspan x="72">LOAN</tspan><tspan x="72" dy="22">DECISION</tspan></text><text x="72" y="555" class="lane-note" fill="#ccfbf1"><tspan x="72">score required</tspan><tspan x="72" dy="18">before pricing</tspan></text>
+  <g filter="url(#shadow)"><rect x="246" y="433" width="205" height="102" rx="12" fill="#fff" stroke="#99f6e4"/><rect x="510" y="433" width="160" height="102" rx="12" fill="#fff" stroke="#99f6e4"/><rect x="729" y="418" width="270" height="132" rx="12" fill="#fff" stroke="#5eead4" stroke-width="2"/><rect x="1070" y="433" width="210" height="102" rx="12" fill="#fff" stroke="#99f6e4"/><rect x="1339" y="433" width="150" height="102" rx="12" fill="#fff" stroke="#99f6e4"/></g>
+  <text x="270" y="468" class="card-title">LoanRiskCalculator</text><text x="270" y="493" class="card-copy"><tspan x="270">UI / internal client</tspan><tspan x="270" dy="17">application-time fields</tspan></text>
+  <text x="535" y="468" class="card-title">Internal ALB</text><text x="535" y="493" class="card-copy"><tspan x="535">TLS • routing</tspan><tspan x="535" dy="17">origin controls</tspan></text>
+  <rect x="749" y="438" width="44" height="44" rx="10" fill="#ccfbf1"/><path d="M759 450h24v17h-24zm5 22h14m-7-5v5" fill="none" stroke="#0f766e" stroke-width="2"/>
+  <text x="810" y="451" class="card-title"><tspan x="810">FastAPI serving on EKS</tspan><tspan x="810" dy="19">replicated pods</tspan></text><text x="749" y="511" class="card-copy"><tspan x="749">schema fail-closed • health probes</tspan><tspan x="749" dy="17">loads approved champion at startup</tspan></text>
+  <text x="1094" y="468" class="card-title">Synchronous score</text><text x="1094" y="493" class="card-copy"><tspan x="1094">probability • risk band</tspan><tspan x="1094" dy="17">model + contract versions</tspan></text>
+  <text x="1363" y="468" class="card-title">Pricing flow</text><text x="1363" y="493" class="card-copy"><tspan x="1363">consume result</tspan><tspan x="1363" dy="17">record decision</tspan></text>
+  <path d="M451 484H500" fill="none" stroke="#0f766e" stroke-width="3" marker-end="url(#arrow-teal)"/><path d="M670 484H719" fill="none" stroke="#0f766e" stroke-width="3" marker-end="url(#arrow-teal)"/><path d="M999 484H1060" fill="none" stroke="#0f766e" stroke-width="3" marker-end="url(#arrow-teal)"/><path d="M1280 484H1329" fill="none" stroke="#0f766e" stroke-width="3" marker-end="url(#arrow-teal)"/>
+  <path d="M1359 287V390H925V408" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow-blue)"/><text x="1139" y="383" text-anchor="middle" class="edge-label">verified champion artifact + contract</text>
+  <path d="M1229 251H1204V402H770" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#arrow-amber)"/><text x="1193" y="333" text-anchor="end" class="edge-label">atomic rollback</text>
+
+  <!-- Monitoring and feedback -->
+  <rect x="48" y="609" width="1504" height="184" rx="18" fill="#fff7ed" stroke="#fed7aa"/>
+  <rect x="48" y="609" width="146" height="184" rx="18" fill="#9a3412"/><rect x="48" y="759" width="146" height="34" fill="#9a3412"/>
+  <circle cx="78" cy="646" r="16" fill="#f97316"/><text x="78" y="651" text-anchor="middle" class="step">3</text><text x="103" y="651" class="lane-title">FEEDBACK</text><text x="72" y="685" class="lane-title"><tspan x="72">MONITOR &amp;</tspan><tspan x="72" dy="22">IMPROVE</tspan></text><text x="72" y="761" class="lane-note" fill="#ffedd5"><tspan x="72">drift alerts never</tspan><tspan x="72" dy="18">auto-promote</tspan></text>
+  <g filter="url(#shadow)"><rect x="246" y="650" width="220" height="101" rx="12" fill="#fff" stroke="#fed7aa"/><rect x="525" y="650" width="230" height="101" rx="12" fill="#fff" stroke="#fed7aa"/><rect x="814" y="650" width="230" height="101" rx="12" fill="#fff" stroke="#fed7aa"/><rect x="1103" y="650" width="230" height="101" rx="12" fill="#fff" stroke="#fed7aa"/></g>
+  <text x="270" y="685" class="card-title">Prediction audit events</text><text x="270" y="710" class="card-copy"><tspan x="270">ID • score • version • latency</tspan><tspan x="270" dy="17">no unrestricted payloads</tspan></text>
+  <text x="549" y="685" class="card-title">Operational monitoring</text><text x="549" y="710" class="card-copy"><tspan x="549">CloudWatch + Prometheus</tspan><tspan x="549" dy="17">latency • errors • feature drift</tspan></text>
+  <text x="838" y="685" class="card-title">Mature outcome join</text><text x="838" y="710" class="card-copy"><tspan x="838">performance • calibration</tspan><tspan x="838" dy="17">time slices • subgroups</tspan></text>
+  <text x="1127" y="685" class="card-title">Investigate / retrain</text><text x="1127" y="710" class="card-copy"><tspan x="1127">alerts + approved triggers</tspan><tspan x="1127" dy="17">all gates still apply</tspan></text>
+  <path d="M864 550V598H356V640" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#arrow-amber)"/><text x="610" y="592" text-anchor="middle" class="edge-label">store prediction + model / contract versions</text>
+  <path d="M466 701H515" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#arrow-amber)"/><path d="M755 701H804" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#arrow-amber)"/><path d="M1044 701H1093" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#arrow-amber)"/>
+  <path d="M1333 701H1519V123H579V150" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#arrow-amber)"/><text x="1506" y="411" transform="rotate(-90 1506 411)" text-anchor="middle" class="edge-label">scheduled / evidence-triggered update</text>
+
+  <!-- CI/CD -->
+  <rect x="48" y="815" width="1504" height="137" rx="18" fill="#faf5ff" stroke="#e9d5ff"/>
+  <rect x="48" y="815" width="146" height="137" rx="18" fill="#581c87"/><rect x="48" y="918" width="146" height="34" fill="#581c87"/>
+  <circle cx="78" cy="852" r="16" fill="#a855f7"/><text x="78" y="857" text-anchor="middle" class="step">4</text><text x="103" y="857" class="lane-title">CI / CD</text><text x="72" y="892" class="lane-title"><tspan x="72">DELIVERY</tspan><tspan x="72" dy="22">CONTROL</tspan></text>
+  <g filter="url(#shadow)"><rect x="246" y="842" width="220" height="82" rx="12" fill="#fff" stroke="#e9d5ff"/><rect x="525" y="842" width="230" height="82" rx="12" fill="#fff" stroke="#e9d5ff"/><rect x="814" y="842" width="230" height="82" rx="12" fill="#fff" stroke="#e9d5ff"/><rect x="1103" y="842" width="230" height="82" rx="12" fill="#fff" stroke="#e9d5ff"/></g>
+  <text x="270" y="875" class="card-title">Code + configuration</text><text x="270" y="899" class="card-copy">version-controlled changes</text>
+  <text x="549" y="875" class="card-title">Test, build &amp; scan</text><text x="549" y="899" class="card-copy">unit • contract • E2E • security</text>
+  <text x="838" y="875" class="card-title">Amazon ECR</text><text x="838" y="899" class="card-copy">versioned training + serving images</text>
+  <text x="1127" y="875" class="card-title">Staged EKS deploy</text><text x="1127" y="899" class="card-copy">dev → staging → canary → prod</text>
+  <path d="M466 883H515" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#arrow-purple)"/><path d="M755 883H804" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#arrow-purple)"/><path d="M1044 883H1093" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#arrow-purple)"/>
+  <path d="M1333 883H1464V571H999" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#arrow-purple)"/><text x="1452" y="727" transform="rotate(-90 1452 727)" text-anchor="middle" class="edge-label">approved service release</text>
+
+  <text x="48" y="980" class="subtitle">Security boundary: IAM roles for service accounts • least-privilege S3/ECR access • Secrets Manager / SSM • TLS • immutable audit trail</text>
+</svg>

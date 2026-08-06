@@ -27,6 +27,12 @@ type ServiceMetrics = {
   bands: { low: number; medium: number; high: number };
 };
 
+type ApplicationInput = Record<string, unknown>;
+
+function isApplicationInput(value: unknown): value is ApplicationInput {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 const initialForm = {
@@ -74,14 +80,15 @@ export default function Home() {
     setForm((current) => ({ ...current, [name]: value }));
   }
 
-  function batchContainsUnknowns(): boolean {
+  function batchContainsUnmappedCategories(): boolean {
     if (mode !== "batch") return false;
     try {
       const payload = JSON.parse(batchInput);
       if (!Array.isArray(payload)) return false;
-      return payload.some((p: any) => {
-        const lt = (p.leadType || "").toString().toLowerCase();
-        const st = (p.state || "").toString();
+      return payload.some((application: unknown) => {
+        if (!isApplicationInput(application)) return false;
+        const lt = String(application.leadType ?? "").toLowerCase();
+        const st = String(application.state ?? "");
         return lt === "others" || st.toLowerCase() === "other";
       });
     } catch {
@@ -146,21 +153,23 @@ export default function Home() {
         await refreshMetrics();
       } else {
         // Batch mode: expect JSON array of application objects
-        let payload: any;
+        let payload: unknown;
         try {
           payload = JSON.parse(batchInput);
-          if (!Array.isArray(payload)) throw new Error("Batch input must be a JSON array");
-        } catch (parseErr) {
+          if (!Array.isArray(payload) || !payload.every(isApplicationInput)) {
+            throw new Error("Batch input must be a JSON array of application objects");
+          }
+        } catch {
           throw new Error("Invalid JSON batch input");
         }
         const response = await fetch(`${API_BASE}/v1/predict/batch`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload.map((p: any) => ({
-            ...p,
-            applicationDate: p.applicationDate ? `${p.applicationDate}T12:00:00Z` : `${form.applicationDate}T12:00:00Z`,
-            loanAmount: Number(p.loanAmount ?? form.loanAmount),
-            leadCost: Number(p.leadCost ?? form.leadCost),
+          body: JSON.stringify(payload.map((application) => ({
+            ...application,
+            applicationDate: application.applicationDate ? `${String(application.applicationDate)}T12:00:00Z` : `${form.applicationDate}T12:00:00Z`,
+            loanAmount: Number(application.loanAmount ?? form.loanAmount),
+            leadCost: Number(application.leadCost ?? form.leadCost),
           }))),
         });
         const body = await response.json();
@@ -260,7 +269,7 @@ export default function Home() {
                 <option value="lead">Standard lead</option>
                 <option value="organic">Organic</option>
                 <option value="prescreen">Pre-screen</option>
-                <option value="others">Others</option>
+                <option value="others">Other / unmapped</option>
               </select>
             </label>
             <label>
@@ -323,7 +332,7 @@ export default function Home() {
                 <option value="WV">West Virginia</option>
                 <option value="WI">Wisconsin</option>
                 <option value="WY">Wyoming</option>
-                <option value="Other">Unknown</option>
+                <option value="Other">Other / unmapped</option>
               </select>
             </label>
           </div>
@@ -336,10 +345,10 @@ export default function Home() {
               <p><small>Provide a JSON array of application objects. Missing fields will use the single-form defaults.</small></p>
             </div>
           )}
-            {/* Show warning when unknown categories are used */}
-            {((mode === "single" && (form.leadType === "others" || (form.state || "").toString().toLowerCase() === "other")) || batchContainsUnknowns()) && (
+            {/* Show a warning when unmapped categories are used. */}
+            {((mode === "single" && (form.leadType === "others" || (form.state || "").toString().toLowerCase() === "other")) || batchContainsUnmappedCategories()) && (
               <p className="warning-message" style={{ color: "#b04", marginTop: 8 }}>
-                Warning: one or more fields use an unknown category ("Others" or "Other"). These indicate new or unmapped data and may produce unexpected results.
+                Warning: one or more fields use “Other / unmapped”. The model can handle unseen categories, but the result may be less reliable.
               </p>
             )}
 

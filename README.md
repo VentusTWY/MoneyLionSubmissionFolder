@@ -41,12 +41,36 @@ Minimal required inputs
   - `clarity_underwriting_variables.parquet`
 
 Notes
-- The UI supports `Single` and `Batch` modes. Use `leadType: "others"` or `state: "Other"` to indicate new/unmapped categories; the UI will display a warning.
+- The UI supports `Single` and `Batch` modes. Both category selectors display
+  **Other / unmapped** consistently; batch API values remain
+  `leadType: "others"` and `state: "Other"`.
 - For full implementation details, model metrics, and caveats see `documentation/`.
 
-> TODO: remove the PDF file from the repo tomorrow and push the final branch.
+Registry backend configuration
+------------------------------
 
-If you want, I can also add a `DEMO.md` with a one-command demo script or prepare a minimal Docker image for the UI only.
+Training and serving select the model registry through one URI:
+
+```bash
+# Self-contained demo (the default)
+export MODEL_REGISTRY_URI=file://registry
+
+# Production extension point (intentionally not installed in this demo)
+export MODEL_REGISTRY_URI=s3://loan-risk-models/registry
+```
+
+`file://registry` selects the tested local registry with immutable version
+directories, atomic champion-pointer replacement, locking, audit history, and
+rollback. The same URI is accepted by the pipeline's `--registry` option and by
+the API environment. Plain filesystem paths remain supported for tests and local
+scripts.
+
+The `s3://` value currently fails with an explicit production-backend message;
+it does not silently emulate local filesystem semantics. The intended adapter
+stores immutable model bundles in versioned S3 objects and uses DynamoDB (or an
+equivalent transactional metadata store) for champion-pointer updates and
+promotion locking. This keeps the demo credential-free while making the
+production replacement boundary visible and testable.
 
 Retraining demo
 ----------------

@@ -4,7 +4,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 MODEL_REGISTRY=/app/registry
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 MODEL_REGISTRY_URI=file:///app/registry
 WORKDIR /app
 
 RUN addgroup --system app && adduser --system --ingroup app app

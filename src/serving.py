@@ -14,7 +14,7 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict
 
 from src.features import transform_features
-from src.mlops import LocalRegistry, verify_bundle
+from src.mlops import ModelRegistry, create_registry, verify_bundle
 
 
 class PredictionRequest(BaseModel):
@@ -34,8 +34,12 @@ class LoanRiskPredictor:
         self.reject_threshold = float(self.manifest.get("reject_threshold", self.review_threshold))
 
     @classmethod
-    def from_registry(cls, registry_root: str | Path) -> "LoanRiskPredictor":
-        return cls(LocalRegistry(registry_root).champion_dir())
+    def from_registry(
+        cls, registry: ModelRegistry | str | Path
+    ) -> "LoanRiskPredictor":
+        if isinstance(registry, (str, Path)):
+            registry = create_registry(registry)
+        return cls(registry.champion_dir())
 
     def predict(self, raw: dict) -> dict:
         if "applicationDate" not in raw:
@@ -97,7 +101,10 @@ class ServiceMetrics:
         return "\n".join(lines) + "\n"
 
 
-def create_app(registry_root: str | Path = "registry", batch_limit: int = 100):
+def create_app(
+    registry: ModelRegistry | str | Path = "file://registry",
+    batch_limit: int = 100,
+):
     try:
         from fastapi import FastAPI, HTTPException
         from fastapi.middleware.cors import CORSMiddleware
@@ -118,7 +125,7 @@ def create_app(registry_root: str | Path = "registry", batch_limit: int = 100):
         allow_methods=["GET", "POST"],
         allow_headers=["Content-Type"],
     )
-    predictor = LoanRiskPredictor.from_registry(registry_root)
+    predictor = LoanRiskPredictor.from_registry(registry)
     metrics = ServiceMetrics()
 
     def execute(payload: dict):

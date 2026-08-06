@@ -10,6 +10,8 @@ import subprocess
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Protocol
+from urllib.parse import unquote, urlparse
 
 import joblib
 
@@ -69,6 +71,24 @@ def evaluate_gates(
             "passed": metrics["roc_auc"] >= champion_metrics["roc_auc"] - tolerance,
         })
     return {"passed": all(item["passed"] for item in gates), "gates": gates}
+
+
+class ModelRegistry(Protocol):
+    """Backend contract shared by training, promotion, and serving."""
+
+    def champion(self) -> dict | None: ...
+
+    def champion_dir(self) -> Path: ...
+
+    def register(self, bundle: str | Path, version: str) -> Path: ...
+
+    def promote(self, version: str, smoke_test=None) -> dict: ...
+
+    def rollback(self) -> dict: ...
+
+
+class RegistryBackendNotInstalled(RuntimeError):
+    """Raised when a configured production registry adapter is unavailable."""
 
 
 class LocalRegistry:
@@ -159,3 +179,44 @@ class LocalRegistry:
         with self._lock():
             self._point_to(target, current["version"], "manual rollback")
         return self.champion()
+
+
+def create_registry(location: str | Path = "file://registry") -> ModelRegistry:
+    """Create a registry from a plain path or a registry URI.
+
+    ``file://registry`` keeps the demo self-contained. A production adapter
+    should store immutable bundles in S3 and coordinate champion-pointer updates
+    and promotion locks transactionally in DynamoDB (or an equivalent metadata
+    store), rather than treating S3 like a local filesystem.
+    """
+
+    if isinstance(location, Path):
+        return LocalRegistry(location)
+
+    parsed = urlparse(location)
+    if not parsed.scheme:
+        return LocalRegistry(location)
+
+    if parsed.scheme == "file":
+        if parsed.query or parsed.fragment:
+            raise ValueError("Registry file URI cannot contain a query or fragment")
+        if parsed.netloc and parsed.path:
+            if parsed.netloc != "localhost":
+                raise ValueError("Remote file registry hosts are not supported")
+            path = Path(unquote(parsed.path))
+        elif parsed.netloc:
+            # Accept the readable demo form file://registry as a relative path.
+            path = Path(unquote(parsed.netloc))
+        else:
+            path = Path(unquote(parsed.path))
+        return LocalRegistry(path)
+
+    if parsed.scheme == "s3":
+        raise RegistryBackendNotInstalled(
+            "The S3 registry backend is a production extension point and is not "
+            "installed in this demo. Implement an adapter that stores immutable "
+            "bundles in S3 and uses DynamoDB for champion-pointer transactions "
+            "and promotion locking."
+        )
+
+    raise ValueError(f"Unsupported model registry URI scheme: {parsed.scheme}")

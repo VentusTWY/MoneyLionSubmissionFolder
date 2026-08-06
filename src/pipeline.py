@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,7 +12,7 @@ from pathlib import Path
 import yaml
 
 from src.mlops import (
-    LocalRegistry, code_revision, evaluate_gates, sha256, utc_now, write_json,
+    code_revision, create_registry, evaluate_gates, sha256, utc_now, write_json,
 )
 from src.serving import LoanRiskPredictor
 from src.train import load_config, run
@@ -23,6 +24,7 @@ def _run_id() -> str:
 
 
 def _smoke_request(schema: dict) -> dict:
+    # Step 0: build a minimal payload that matches the feature schema for a smoke test.
     request = {"applicationDate": "2020-01-15T12:00:00Z"}
     derived = {"application_month", "application_dayofweek", "application_hour"}
     for item in schema["features"]:
@@ -41,16 +43,20 @@ def _smoke_request(schema: dict) -> dict:
 def execute(
     config_path: str | Path,
     promotion_path: str | Path = "configs/promotion.yaml",
-    registry_root: str | Path = "registry",
+    registry_uri: str | Path = "file://registry",
     runs_root: str | Path = "artifacts/runs",
 ) -> dict:
+    # Step 1: load the training config and promotion rules.
     config_path = Path(config_path)
     config = load_config(config_path)
     promotion = load_config(promotion_path)
+
+    # Step 2: create a unique run directory for this training execution.
     version = _run_id()
     run_dir = Path(runs_root) / version
     run_dir.mkdir(parents=True, exist_ok=False)
 
+    # Step 3: save a copy of the run config and pass it to training.
     run_config = dict(config)
     run_config["output_dir"] = str(run_dir)
     (run_dir / "config.yaml").write_text(yaml.safe_dump(run_config, sort_keys=False))
@@ -61,6 +67,7 @@ def execute(
     finally:
         temporary_config.unlink(missing_ok=True)
 
+    # Step 4: assemble data-quality and smoke-test artifacts from the run outputs.
     cutoff = json.loads((run_dir / "data_cutoff.json").read_text())
     quality = {
         "passed": True,
@@ -78,7 +85,8 @@ def execute(
     schema = json.loads((run_dir / "feature_schema.json").read_text())
     write_json(run_dir / "smoke_request.json", _smoke_request(schema))
 
-    registry = LocalRegistry(registry_root)
+    # Step 5: evaluate whether this run meets the promotion gates.
+    registry = create_registry(registry_uri)
     champion = registry.champion()
     champion_metrics = None
     if champion:
@@ -86,6 +94,7 @@ def execute(
     gates = evaluate_gates(metrics, champion_metrics, promotion, quality)
     write_json(run_dir / "gate_results.json", gates)
 
+    # Step 6: write the manifest and register this run in the configured registry.
     tracked = [
         "model.joblib", "features.json", "feature_schema.json", "metrics.json",
         "threshold_analysis.json", "data_cutoff.json", "data_quality.json",
@@ -109,11 +118,12 @@ def execute(
     write_json(run_dir / "manifest.json", manifest)
     registered = registry.register(run_dir, version)
 
+    # Step 7: promote the model if the gates pass and the smoke test succeeds.
     if gates["passed"]:
         smoke = json.loads((registered / "smoke_request.json").read_text())
         registry.promote(
             version,
-            smoke_test=lambda: LoanRiskPredictor.from_registry(registry_root).predict(smoke),
+            smoke_test=lambda: LoanRiskPredictor.from_registry(registry).predict(smoke),
         )
     result = {
         "version": version,
@@ -131,7 +141,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/baseline.yaml")
     parser.add_argument("--promotion-config", default="configs/promotion.yaml")
-    parser.add_argument("--registry", default="registry")
+    parser.add_argument(
+        "--registry",
+        default=os.environ.get("MODEL_REGISTRY_URI", "file://registry"),
+        help="Registry URI (demo: file://registry; production extension: s3://bucket/prefix)",
+    )
     parser.add_argument("--runs-root", default="artifacts/runs")
     args = parser.parse_args()
     execute(args.config, args.promotion_config, args.registry, args.runs_root)

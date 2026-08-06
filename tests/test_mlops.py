@@ -5,7 +5,14 @@ import joblib
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 
-from src.mlops import LocalRegistry, evaluate_gates, sha256, write_json
+from src.mlops import (
+    LocalRegistry,
+    RegistryBackendNotInstalled,
+    create_registry,
+    evaluate_gates,
+    sha256,
+    write_json,
+)
 from src.serving import LoanRiskPredictor, create_app
 
 
@@ -40,6 +47,27 @@ def test_rejected_gate_does_not_pass():
         {"target_classes": 2},
     )
     assert result["passed"] is False
+
+
+def test_registry_factory_supports_paths_and_file_uris(tmp_path):
+    from_path = create_registry(tmp_path / "path-registry")
+    from_uri = create_registry(f"file://{tmp_path}/uri-registry")
+
+    assert isinstance(from_path, LocalRegistry)
+    assert from_path.root == tmp_path / "path-registry"
+    assert isinstance(from_uri, LocalRegistry)
+    assert from_uri.root == tmp_path / "uri-registry"
+
+
+def test_s3_registry_is_an_explicit_production_extension():
+    try:
+        create_registry("s3://loan-risk-models/registry")
+    except RegistryBackendNotInstalled as exc:
+        message = str(exc)
+        assert "S3" in message
+        assert "DynamoDB" in message
+    else:
+        raise AssertionError("Expected the uninstalled production adapter to fail clearly")
 
 
 def test_registry_promotion_predict_and_rollback(tmp_path):

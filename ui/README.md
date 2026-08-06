@@ -13,7 +13,9 @@ npm run dev
 
 Batch input
 - Switch the form to "Batch" mode and paste a JSON array of application objects.
-- Use `leadType: "others"` or `state: "Other"` to flag new/unmapped categories — the UI shows a warning.
+- Select **Other / unmapped** for a category not listed in the form. Batch JSON
+  uses the existing API values `leadType: "others"` and `state: "Other"`; the UI
+  shows the same warning for either value.
 
 Build for production
 ```bash

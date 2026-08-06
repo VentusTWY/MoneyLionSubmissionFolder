@@ -8,45 +8,11 @@ A production-oriented ML lifecycle for continuous LightGBM updates can be ground
 
 ## Four pipelines, two connected lifecycles
 
-![Hand-drawn architecture showing the model update, online decision, monitoring feedback, rollback, and CI/CD lifecycles](images/part2_ml_architecture.png)
+![Production architecture showing offline model updates, online decisions, monitoring feedback, rollback, and CI/CD](images/part2_ml_architecture.svg)
+
+_Editable source: [part2_ml_architecture.drawio](images/part2_ml_architecture.drawio)_
 
 The system lifecycle follows a clear loop: data ingest → training / candidate evaluation → gated promotion → production serving → monitoring & alerting → retraining / batch jobs. That feedback loop is the core of the ML Ops design.
-
-```text
-+-------------------+      +-----------------+      +-----------------------------+
-|  Raw data / S3    | ---> |  Training / CI  | ---> |  Model Registry / ECR / S3  |
-|  snapshots        |      |  pipeline       |      |  (versioned artifacts)      |
-+-------------------+      +-----------------+      +-------------+---------------+
-                                                              |           ^
-                                                              |           |
-                                                              v           |
-                                                      +-----------------------+  |
-                                                      |  EKS / Kubernetes     |  |
-                                                      |  FastAPI serving API  |  |
-                                                      +----------+------------+  |
-                                                                 |              |
-                                                                 v              |
-                                                       +----------------+      |
-                                                       | Internal ALB   |      |
-                                                       +-------+--------+      |
-                                                                 |               |
-                                                                 v               |
-                                                      +----------------------+  |
-                                                      |  LoanRiskCalculator   |--+
-                                                      |  UI / Browser         |
-                                                      +----------------------+
-                                                                 |
-                                                                 v
-                                                       +----------------------+
-                                                       | Monitoring / Alerting|
-                                                       |  (Prometheus/Grafana)|
-                                                       +----------------------+
-
-+-------------------+      +-----------------+      +-----------------------------+
-|  Retrain / Batch  | ---> |  Job Orchestration| ---> |  Registry / Audit logs      |
-|  Jobs / Cron      |      |  (EKS Jobs/Batch) |      |  (registry/audit.jsonl)     |
-+-------------------+      +-----------------+      +-----------------------------+
-```
 
 The model uses **offline batch learning**: scheduled or evidence-triggered runs train immutable challengers only from mature outcomes, and continuous training never bypasses deployment gates. New applications use **synchronous online inference** because a score is required before pricing. Stored predictions are later joined to mature outcomes for offline evaluation and the next update. Training and serving import the same deterministic feature transformer; its versioned schema records names, order, types, category handling, and prediction point, and a mismatch fails closed. Code or configuration changes follow a separate CI/CD path: unit, integration, contract, leakage, artifact, and end-to-end tests build versioned pipeline/service images before approval.
 

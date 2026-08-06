@@ -9,6 +9,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      MODEL_REGISTRY_URI: file:///app/registry
       UI_ORIGINS: http://localhost:3000
     volumes:
       - ./registry:/app/registry

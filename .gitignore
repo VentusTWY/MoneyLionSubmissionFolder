@@ -4,10 +4,12 @@ __pycache__/
 .DS_Store
 .pytest_cache/
 .vscode/
+.codex/
 artifacts/
 registry/
 data/raw/
 node_modules/
+MLE Assessment Guidelines.pdf
 ui/node_modules/
 ui/.wrangler/
 ui/.next/

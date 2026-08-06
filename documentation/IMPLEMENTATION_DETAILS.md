@@ -150,6 +150,10 @@ and a failed smoke test restores the previous champion pointer.
   the version, promotes it atomically, and performs a reload smoke prediction.
 - `src.mlops` implements hard/tolerance gates, immutable local versions, a lock,
   atomic champion-pointer replacement, an audit log, and manual/automatic rollback.
+  Training and serving depend on a `ModelRegistry` protocol selected by
+  `MODEL_REGISTRY_URI`: `file://registry` uses the tested local implementation,
+  while `s3://bucket/prefix` is an explicit production extension point for an
+  S3 bundle store plus transactional DynamoDB metadata and locking.
 - `src.features` is shared by training and inference and persists ordered fields,
   logical types, nullability, and training category vocabularies.
 - `src.serving` supplies a framework-independent predictor and versioned FastAPI
