@@ -59,5 +59,6 @@ To demonstrate retraining during your presentation, run the pipeline to train a 
 
 Notes:
 - Run the script from the repository root. It requires the Python environment and dependencies used by the pipeline (see above `python -m pip install -r requirements.txt`).
+- By default the challenger is derived from `configs/baseline.yaml` with `max_depth=6` and `num_leaves=31`; all other training parameters remain unchanged. Override these for another controlled experiment, for example: `RETRAIN_MAX_DEPTH=4 RETRAIN_NUM_LEAVES=15 ./scripts/retrain_demo.sh`.
 - Each pipeline invocation creates a timestamped candidate under `registry/versions/`. The script prints recent versions, the active `registry/champion.json`, and the tail of `registry/audit.jsonl`.
 - If Docker Compose is running the API, restart the API container to pick up a new champion: `docker compose restart api`.
