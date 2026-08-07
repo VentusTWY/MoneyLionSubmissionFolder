@@ -106,12 +106,13 @@ new application
   -> log prediction metadata for monitoring and audit
 ```
 
-The POC may expose this through a small FastAPI service with Pydantic request
-models. Suggested endpoints are `POST /predict`, `GET /health`, and
-`GET /model-info`. The service loads the champion once at startup and never
-re-trains during a prediction request. FastAPI is an interface choice, not a
-requirement of the model pipeline; a tested Python prediction interface remains
-the minimum implementation.
+The POC exposes this through a small FastAPI service with Pydantic request
+models. The implemented prediction, model, administration, health, readiness,
+metrics, and generated OpenAPI routes are catalogued in
+[`SERVING_API.md`](SERVING_API.md). The service loads the champion once at
+startup and never re-trains during a prediction request. FastAPI is an interface
+choice, not a requirement of the model pipeline; a tested Python prediction
+interface remains the minimum implementation.
 
 Inference validation should reject missing required fields, invalid types,
 out-of-policy ranges, feature-contract mismatches, and unexpected schema

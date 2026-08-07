@@ -11,8 +11,7 @@ services:
     environment:
       MODEL_REGISTRY_URI: file:///app/registry
       UI_ORIGINS: http://localhost:3000
-      # Empty enables the local POC's admin mode. Set a secret outside local development.
-      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?Set ADMIN_API_KEY in your local .env file}
     volumes:
       - ./registry:/app/registry
     healthcheck:
@@ -37,3 +36,9 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    environment:
+      API_BASE_URL: http://api:8000
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?Set ADMIN_API_KEY in your local .env file}
+      ADMIN_DEMO_EMAIL: ${ADMIN_DEMO_EMAIL:?Set ADMIN_DEMO_EMAIL in your local .env file}
+      ADMIN_DEMO_PASSWORD: ${ADMIN_DEMO_PASSWORD:?Set ADMIN_DEMO_PASSWORD in your local .env file}
+      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:?Set ADMIN_SESSION_SECRET in your local .env file}

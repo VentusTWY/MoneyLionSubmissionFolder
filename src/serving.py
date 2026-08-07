@@ -207,13 +207,12 @@ def create_app(
                 "reject_threshold": predictor.reject_threshold,
             }
 
-    # POC convenience: without ADMIN_API_KEY the local UI runs in admin mode.
-    # Production MUST set a key at minimum, and should replace it with identity
-    # provider authentication plus role-based authorization.
+    # Admin endpoints must always be protected by a configured service secret.
+    # The UI keeps this secret server-side and authorizes its users separately.
     def require_admin(x_admin_api_key: str | None = Header(default=None)) -> None:
-        if configured_admin_key and (
-            not x_admin_api_key or not compare_digest(x_admin_api_key, configured_admin_key)
-        ):
+        if not configured_admin_key:
+            raise HTTPException(status_code=503, detail="Admin API is not configured")
+        if not x_admin_api_key or not compare_digest(x_admin_api_key, configured_admin_key):
             raise HTTPException(status_code=403, detail="Invalid admin API key")
 
     def reload_champion() -> LoanRiskPredictor:

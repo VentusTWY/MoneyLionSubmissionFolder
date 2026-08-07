@@ -74,6 +74,10 @@ h1 { max-width: 760px; margin: 0; font-family: Georgia, "Times New Roman", serif
 .metric-bad { color: #c14a4f; }
 
 .admin-panel { width: min(1180px, calc(100% - 40px)); margin: 0 auto 42px; padding: 30px; display: grid; grid-template-columns: minmax(0, .7fr) minmax(420px, 1.3fr); gap: 34px; border: 1px solid #d7d0be; background: #fbf8ed; }
+.staff-sign-in { color: #455650; font-size: 13px; font-weight: 650; text-decoration: none; }
+.staff-sign-in:hover { text-decoration: underline; }
+.admin-navigation { display: flex; align-items: center; gap: 16px; }
+.access-denied { width: min(640px, calc(100% - 40px)); margin: 100px auto; padding: 32px; border: 1px solid #d7d0be; background: #fbf8ed; }
 .admin-panel h2 { margin: 0 0 8px; font: 500 31px Georgia, serif; letter-spacing: -.03em; }
 .admin-panel > div > p:last-child { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .admin-controls { display: grid; gap: 14px; }

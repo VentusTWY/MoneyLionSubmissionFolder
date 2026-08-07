@@ -49,6 +49,8 @@ Notes
 - The UI supports `Single` and `Batch` modes. Both category selectors display
   **Other / unmapped** consistently; batch API values remain
   `leadType: "others"` and `state: "Other"`.
+- For the complete route inventory, request contracts, responses, access
+  boundaries, and errors, see [`documentation/SERVING_API.md`](documentation/SERVING_API.md).
 - For full implementation details, model metrics, and caveats see `documentation/`.
 
 ## Registry backend configuration
@@ -93,13 +95,18 @@ Notes:
 
 ## Admin model operations
 
-The scoring UI always uses the approved champion; model changes are made through the admin workflow. For local POC use, it runs in admin mode by default. To protect the API, set a non-empty secret before starting it:
+The scoring UI always uses the approved champion; model changes are available only at `/admin` after the demo admin login. The UI relays approved actions to the API with a server-only secret.
+
+Copy `.env.example` to `.env`, then set the demo login credentials and long random secrets:
 
 ```bash
-export ADMIN_API_KEY='use-a-long-random-secret'
+ADMIN_API_KEY='use-a-long-random-secret'
+ADMIN_DEMO_EMAIL='admin@example.com'
+ADMIN_DEMO_PASSWORD='choose-a-demo-password'
+ADMIN_SESSION_SECRET='use-a-second-long-random-secret'
 docker compose up --build
 ```
 
-An operator can inspect registered versions, then promote a version or roll back to the previous champion. When a key is configured, enter it in the **Model operations** panel. Each change requires an actor and reason and is appended to `registry/audit.jsonl`. The API reloads the verified champion in-process before it confirms the change, so a container restart is not required for this workflow.
+An operator can inspect registered versions, then promote a version or roll back to the previous champion. Each change uses the authenticated operator's identity and a reason, and is appended to `registry/audit.jsonl`. The API reloads the verified champion in-process before it confirms the change, so a container restart is not required for this workflow.
 
-Never expose the admin API key through `NEXT_PUBLIC_*` UI configuration or commit it to the repository. For a production deployment, replace this shared-key POC control with your organisation's authenticated identity provider and role-based access controls.
+Never expose the API key, demo password, or session secret through `NEXT_PUBLIC_*` UI configuration or commit them to the repository. For a hosted Sites deployment, configure `ADMIN_API_KEY`, `ADMIN_DEMO_EMAIL`, `ADMIN_DEMO_PASSWORD`, `ADMIN_SESSION_SECRET`, and `API_BASE_URL` as hosted runtime values rather than adding them to source control.

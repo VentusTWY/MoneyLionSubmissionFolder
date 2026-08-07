@@ -5,6 +5,8 @@ __pycache__/
 .pytest_cache/
 .vscode/
 .codex/
+.env
+.env.local
 artifacts/
 registry/
 data/raw/
