@@ -11,23 +11,37 @@ from sklearn.metrics import average_precision_score, log_loss, roc_auc_score
 
 
 def population_stability_index(reference, current, bins: int = 10) -> float:
+    # Step 1: coerce both samples to comparable non-null numeric series.
     reference = pd.to_numeric(pd.Series(reference), errors="coerce").dropna()
     current = pd.to_numeric(pd.Series(current), errors="coerce").dropna()
+
+    # Step 2: return an unavailable result when either population is empty.
     if reference.empty or current.empty:
         return float("nan")
+
+    # Step 3: derive stable reference quantile bins and handle constant features.
     edges = np.unique(np.quantile(reference, np.linspace(0, 1, bins + 1)))
     if len(edges) < 2:
         return 0.0
     edges[0], edges[-1] = -np.inf, np.inf
+
+    # Step 4: calculate expected and current proportions in the same bins.
     expected = np.histogram(reference, bins=edges)[0] / len(reference)
     actual = np.histogram(current, bins=edges)[0] / len(current)
     expected, actual = np.clip(expected, 1e-6, None), np.clip(actual, 1e-6, None)
+
+    # Step 5: return the summed population-stability contribution.
     return float(np.sum((actual - expected) * np.log(actual / expected)))
 
 
 def drift_report(reference: pd.DataFrame, current: pd.DataFrame) -> dict:
+    # Step 1: identify numeric features present in both populations.
     common = reference.select_dtypes(include="number").columns.intersection(current.columns)
+
+    # Step 2: calculate PSI independently for every comparable feature.
     values = {name: population_stability_index(reference[name], current[name]) for name in common}
+
+    # Step 3: return row counts, per-feature values, and the strongest finite drift.
     return {
         "reference_rows": len(reference),
         "current_rows": len(current),
@@ -37,16 +51,21 @@ def drift_report(reference: pd.DataFrame, current: pd.DataFrame) -> dict:
 
 
 def delayed_performance_report(outcomes: pd.DataFrame) -> dict:
+    # Step 1: enforce the minimum prediction/outcome join contract.
     required = {"model_version", "adverse_probability", "adverse_outcome"}
     missing = sorted(required - set(outcomes.columns))
     if missing:
         raise ValueError(f"Delayed outcomes are missing columns: {missing}")
+
+    # Step 2: evaluate each deployed model version independently.
     reports = {}
     for version, rows in outcomes.groupby("model_version"):
         y = rows["adverse_outcome"].astype(int)
+        # Step 3: retain evidence but skip metrics when only one class has matured.
         if y.nunique() != 2:
             reports[str(version)] = {"rows": len(rows), "status": "insufficient_classes"}
             continue
+        # Step 4: calculate delayed discrimination and calibration metrics.
         probability = rows["adverse_probability"].astype(float)
         reports[str(version)] = {
             "rows": len(rows),

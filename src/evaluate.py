@@ -16,7 +16,10 @@ from sklearn.metrics import (
 
 
 def evaluate_predictions(y_true, probabilities, threshold: float, output_dir: Path) -> dict:
+    # Step 1: convert probabilities into decisions at the configured threshold.
     predictions = (probabilities >= threshold).astype(int)
+
+    # Step 2: calculate discrimination, calibration, and decision metrics.
     matrix = confusion_matrix(y_true, predictions, labels=[0, 1])
     metrics = {
         "roc_auc": float(roc_auc_score(y_true, probabilities)),
@@ -27,6 +30,8 @@ def evaluate_predictions(y_true, probabilities, threshold: float, output_dir: Pa
         "threshold": float(threshold),
         "confusion_matrix": matrix.tolist(),
     }
+
+    # Step 3: render and persist a labelled confusion-matrix diagnostic.
     output_dir.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(5, 4))
     ConfusionMatrixDisplay(matrix, display_labels=["paid off", "adverse"]).plot(ax=ax)
@@ -34,6 +39,7 @@ def evaluate_predictions(y_true, probabilities, threshold: float, output_dir: Pa
     fig.savefig(output_dir / "confusion_matrix.png", dpi=150)
     plt.close(fig)
 
+    # Step 4: measure the precision/recall trade-off across candidate thresholds.
     thresholds = np.linspace(0.05, 0.95, 19)
     analysis = []
     for value in thresholds:
@@ -46,4 +52,6 @@ def evaluate_predictions(y_true, probabilities, threshold: float, output_dir: Pa
     (output_dir / "threshold_analysis.json").write_text(
         json.dumps(analysis, indent=2) + "\n", encoding="utf-8"
     )
+
+    # Step 5: return the primary metrics for gates and model comparison.
     return metrics

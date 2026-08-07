@@ -6,21 +6,25 @@
 
 A production-oriented ML lifecycle for continuous LightGBM updates can be grounded by a concise operational context: the model is scored before pricing, uses application-time features only, and should support immutable challenger training, gated promotion, and safe online inference.
 
-## Four pipelines, two connected lifecycles
+## Three ML pipelines and the CI/CD control plane
 
-![Production architecture showing offline model updates, online decisions, monitoring feedback, rollback, and CI/CD](images/part2_ml_architecture.svg)
+![Production architecture showing the CI/CD control plane above offline training, online serving, and monitoring pipelines in a closed ML lifecycle](images/latest.png)
 
-_Editable source: [part2_ml_architecture.drawio](images/part2_ml_architecture.drawio)_
+_Editable source: [final_simplified_diagram.drawio](images/final_simplified_diagram.drawio)_
 
-The system lifecycle follows a clear loop: data ingest → training / candidate evaluation → gated promotion → production serving → monitoring & alerting → retraining / batch jobs. That feedback loop is the core of the ML Ops design.
+The dashed boundary is the ML lifecycle. It contains three connected pipelines, each with a distinct operational responsibility:
 
-The model uses **offline batch learning**: scheduled or evidence-triggered runs train immutable challengers only from mature outcomes, and continuous training never bypasses deployment gates. New applications use **synchronous online inference** because a score is required before pricing. Stored predictions are later joined to mature outcomes for offline evaluation and the next update. Training and serving import the same deterministic feature transformer; its versioned schema records names, order, types, category handling, and prediction point, and a mismatch fails closed. Code or configuration changes follow a separate CI/CD path: unit, integration, contract, leakage, artifact, and end-to-end tests build versioned pipeline/service images before approval.
+1. **Offline model-training pipeline.** Immutable S3 snapshots are validated and transformed, then a challenger is trained and evaluated. Promotion gates check the candidate before its versioned artifacts are registered as the approved champion.
+2. **Online serving pipeline.** The risk API client reaches the FastAPI service through the internal ALB. The service loads only the approved champion, returns a synchronous score for the downstream pricing, review, or reject workflow, and exposes readiness and service metrics.
+3. **Monitor and improve pipeline.** Prediction audit events, service metrics, and mature outcomes feed performance and operational monitoring. An alert leads to investigation, remediation, or a controlled retraining trigger; it does not change the live model automatically.
+
+Together these pipelines form a closed loop: training publishes an approved champion to serving; serving emits events and metrics to monitoring; monitored issues can initiate the next controlled training run. The CI/CD delivery pipeline sits above this loop. GitHub Actions tests, builds, and scans versioned training and service images; Amazon ECR stores them; deployment then promotes the tested application image through EKS environments. CI/CD changes software and infrastructure, while model promotion remains a separate governed registry action.
 
 ## Steps and controls
 
 1. **Ingest and validate.** Read immutable, identified snapshots and record checksums, schemas, row counts, date ranges, and code/config versions. Enforce required types, unique non-null loan IDs, unique Clarity IDs, many-to-one joins, valid binary fields, and leakage exclusions. Quarantine contradictory terminal outcomes; fail on missing columns, duplicate keys, or incompatible schemas.
 
-2. **Build training data.** Generate application-time features under `pre_pricing_v1`. New applications may enter population-drift reports immediately, but become supervised examples only after an approved performance window and resolved outcome. Use rolling chronological train, validation, and untouched test windows; fit learned transformations only on training data.
+2. **Build training data.** Apply the versioned feature schema consistently in training and serving. New applications may enter population-drift reports immediately, but become supervised examples only after an approved performance window and resolved outcome. Use rolling chronological train, validation, and untouched test windows; fit learned transformations only on training data.
 
 3. **Evaluate and gate.** Compare the LightGBM challenger with constant/logistic benchmarks and the deployed champion on identical rows. Hard gates cover schema, leakage, maturity, sample size, and inference compatibility. Configurable gates cover ROC-AUC, PR-AUC, log loss/calibration, recent-period stability, approved subgroup behaviour, and business value when costs exist. Use tolerances or confidence intervals for sampling noise. A failed candidate remains auditable but cannot change production.
 
@@ -44,4 +48,4 @@ The model uses **offline batch learning**: scheduled or evidence-triggered runs 
 
 ## Principal limitations and decisions required
 
-Outcomes exist only for historically funded loans, so performance cannot be established for rejected applicants and may shift when approval policy changes. The extract lacks timestamped status history, making a minimum-age maturity rule only a POC approximation. Business, risk, data, and legal owners must approve ambiguous outcomes, maturity window, threshold/costs, fairness policy, cadence, service SLOs, fallback, retention, and gate limits. Production identity, encryption, auditability, high availability, regional recovery, and infrastructure integration require environment-specific validation.
+Before production, platform owners must define service SLOs, access controls, secret management, retention, audit trails, rollout and rollback runbooks, and disaster-recovery targets. The local registry and single-service POC validate the interfaces; a production deployment still requires environment-specific IAM, encryption, observability, high availability, regional recovery, and integration testing.

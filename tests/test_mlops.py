@@ -127,3 +127,39 @@ def test_api_health_prediction_and_batch_limit(tmp_path):
     item = {"applicationDate": "2020-01-01", "loanAmount": 5.0}
     assert client.post("/v1/predict/batch", json=[item, item]).status_code == 413
     assert "ml_prediction_requests_total" in client.get("/metrics").text
+
+
+def test_admin_model_operations_require_a_key_and_reload_the_predictor(tmp_path):
+    from fastapi.testclient import TestClient
+
+    registry = LocalRegistry(tmp_path / "registry")
+    registry.register(make_bundle(tmp_path, "v1"), "v1")
+    registry.promote("v1")
+    registry.register(make_bundle(tmp_path, "v2"), "v2")
+    client = TestClient(create_app(registry.root, admin_api_key="test-admin-key"))
+    change = {"actor": "Model Risk", "reason": "Drift investigation approved this change"}
+
+    assert client.get("/v1/admin/models").status_code == 403
+    assert client.get("/v1/admin/models", headers={"X-Admin-API-Key": "wrong"}).status_code == 403
+
+    listed = client.get("/v1/admin/models", headers={"X-Admin-API-Key": "test-admin-key"})
+    assert listed.status_code == 200
+    assert {model["version"] for model in listed.json()["models"]} == {"v1", "v2"}
+
+    promoted = client.post(
+        "/v1/admin/models/v2/promote",
+        headers={"X-Admin-API-Key": "test-admin-key"},
+        json=change,
+    )
+    assert promoted.status_code == 200
+    assert client.get("/health/ready").json()["model_version"] == "v2"
+    assert registry.champion()["actor"] == "Model Risk"
+    assert registry.champion()["reason"] == change["reason"]
+
+    rolled_back = client.post(
+        "/v1/admin/models/rollback",
+        headers={"X-Admin-API-Key": "test-admin-key"},
+        json=change,
+    )
+    assert rolled_back.status_code == 200
+    assert client.get("/health/ready").json()["model_version"] == "v1"

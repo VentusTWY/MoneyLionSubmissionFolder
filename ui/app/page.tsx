@@ -20,6 +20,16 @@ type ModelInfo = {
   reject_threshold: number;
 };
 
+type RegistryModel = {
+  version: string;
+  created_at_utc: string | null;
+  feature_contract_version: string | null;
+  status: string | null;
+  metrics: Record<string, number>;
+  is_active: boolean;
+  is_previous: boolean;
+};
+
 type ServiceMetrics = {
   requests: number;
   failures: number;
@@ -56,6 +66,12 @@ export default function Home() {
   const [mode, setMode] = useState<"single" | "batch">("single");
   const [batchInput, setBatchInput] = useState("[");
   const [batchResults, setBatchResults] = useState<Prediction[] | null>(null);
+  const [adminKey, setAdminKey] = useState("");
+  const [adminActor, setAdminActor] = useState("Admin");
+  const [adminReason, setAdminReason] = useState("");
+  const [adminModels, setAdminModels] = useState<RegistryModel[] | null>(null);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminError, setAdminError] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -127,6 +143,62 @@ export default function Home() {
     const response = await fetch(`${API_BASE}/metrics`);
     if (!response.ok) throw new Error("Metrics unavailable");
     setMetrics(parseMetrics(await response.text()));
+  }
+
+  function adminHeaders(): HeadersInit {
+    return { "Content-Type": "application/json", "X-Admin-API-Key": adminKey };
+  }
+
+  async function loadAdminModels() {
+    setAdminLoading(true);
+    setAdminError("");
+    try {
+      const response = await fetch(`${API_BASE}/v1/admin/models`, { headers: adminHeaders() });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.detail ?? "Unable to load model registry");
+      setAdminModels(body.models as RegistryModel[]);
+    } catch (requestError) {
+      setAdminModels(null);
+      setAdminError(requestError instanceof Error ? requestError.message : "Unable to load model registry");
+    } finally {
+      setAdminLoading(false);
+    }
+  }
+
+  async function changeModel(action: "promote" | "rollback", version?: string) {
+    if (adminActor.trim().length < 2 || adminReason.trim().length < 5) {
+      setAdminError("Enter your name and a reason of at least five characters before changing the champion.");
+      return;
+    }
+    const label = action === "rollback" ? "roll back to the previous approved model" : `promote ${version}`;
+    if (!window.confirm(`Confirm: ${label}? This changes the production scoring model immediately.`)) return;
+
+    setAdminLoading(true);
+    setAdminError("");
+    try {
+      const path = action === "rollback"
+        ? "/v1/admin/models/rollback"
+        : `/v1/admin/models/${encodeURIComponent(version ?? "")}/promote`;
+      const response = await fetch(`${API_BASE}${path}`, {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify({ actor: adminActor.trim(), reason: adminReason.trim() }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.detail ?? "Model change failed");
+      setAdminReason("");
+      await Promise.all([
+        loadAdminModels(),
+        fetch(`${API_BASE}/v1/model`).then(async (modelResponse) => {
+          if (!modelResponse.ok) throw new Error("Model refresh failed");
+          setModel(await modelResponse.json() as ModelInfo);
+        }),
+      ]);
+    } catch (requestError) {
+      setAdminError(requestError instanceof Error ? requestError.message : "Model change failed");
+    } finally {
+      setAdminLoading(false);
+    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -235,6 +307,50 @@ export default function Home() {
             </div>
           </div>
         ) : null}
+      </section>
+
+      <section className="admin-panel" aria-label="Admin model operations">
+        <div>
+          <p className="eyebrow">Restricted access</p>
+          <h2>Model operations</h2>
+          <p>Use only during approved model governance or an investigated incident. Every change records an actor and reason.</p>
+        </div>
+        <div className="admin-controls">
+          <label>
+            Admin API key <small>(only needed when the API is configured with one)</small>
+            <input type="password" autoComplete="off" value={adminKey} onChange={(event) => setAdminKey(event.target.value)} />
+          </label>
+          <button type="button" className="secondary-button" onClick={loadAdminModels} disabled={adminLoading}>
+            {adminLoading ? "Checking access…" : "Access model registry"}
+          </button>
+          {adminModels ? (
+            <>
+              <div className="admin-change-fields">
+                <label>Actor<input value={adminActor} onChange={(event) => setAdminActor(event.target.value)} placeholder="Your name" /></label>
+                <label>Reason<input value={adminReason} onChange={(event) => setAdminReason(event.target.value)} placeholder="e.g. Approved rollback after drift investigation" /></label>
+              </div>
+              <div className="model-list">
+                {adminModels.map((registryModel) => (
+                  <article key={registryModel.version} className={registryModel.is_active ? "registry-model active" : "registry-model"}>
+                    <div>
+                      <strong>{registryModel.version}</strong>
+                      <small>{registryModel.is_active ? "Active champion" : registryModel.is_previous ? "Rollback target" : registryModel.status ?? "Registered"}</small>
+                      <small>{registryModel.created_at_utc ? new Date(registryModel.created_at_utc).toLocaleString() : "Creation time unavailable"}</small>
+                    </div>
+                    <div className="registry-metrics">
+                      {Object.entries(registryModel.metrics).map(([name, value]) => <small key={name}>{name}: {value.toFixed(3)}</small>)}
+                    </div>
+                    {!registryModel.is_active ? <button type="button" className="secondary-button" disabled={adminLoading} onClick={() => changeModel("promote", registryModel.version)}>Promote</button> : null}
+                  </article>
+                ))}
+              </div>
+              <button type="button" className="rollback-button" disabled={adminLoading || !adminModels.some((registryModel) => registryModel.is_previous)} onClick={() => changeModel("rollback")}>
+                Roll back to previous champion
+              </button>
+            </>
+          ) : null}
+          {adminError ? <p className="error-message">{adminError}</p> : null}
+        </div>
       </section>
 
       <section className="workspace" aria-label="Loan risk workspace">

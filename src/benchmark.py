@@ -24,18 +24,24 @@ from src.train import customer_overlap, load_config, temporal_split
 
 
 def run(config_path: str | Path, output_dir: str | Path) -> dict:
+    # Step 1: load the shared configuration and prepare benchmark outputs.
     config = load_config(config_path)
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
 
+    # Step 2: load inputs and construct the same resolved target as LightGBM.
     loans, clarity = load_training_inputs(config)
     resolved = create_resolved_target(loans, config)
+
+    # Step 3: join application-time data and reuse the chronological split policy.
     joined = join_clarity(resolved, clarity)
     train_frame, valid_frame, test_frame = temporal_split(
         joined,
         config["split"]["validation_fraction"],
         config["split"]["test_fraction"],
     )
+
+    # Step 4: build and align feature matrices under the production contract.
     target = config["label"]["target_name"]
     contract = config.get("feature_contract", {})
     X_train, y_train = build_features(train_frame, target, contract)
@@ -44,6 +50,7 @@ def run(config_path: str | Path, output_dir: str | Path) -> dict:
     X_valid = X_valid[X_train.columns]
     X_test = X_test[X_train.columns]
 
+    # Step 5: separate categorical and numeric columns for sklearn preprocessing.
     categorical = list(
         X_train.select_dtypes(include=["object", "string", "category"]).columns
     )
@@ -53,6 +60,8 @@ def run(config_path: str | Path, output_dir: str | Path) -> dict:
     for frame in (X_train, X_valid, X_test):
         frame[categorical] = frame[categorical].astype("object")
     numeric = [column for column in X_train.columns if column not in categorical]
+
+    # Step 6: build imputation, scaling, and one-hot encoding transformations.
     preprocessing = ColumnTransformer(
         transformers=[
             (
@@ -73,11 +82,15 @@ def run(config_path: str | Path, output_dir: str | Path) -> dict:
             ),
         ]
     )
+
+    # Step 7: fit the logistic-regression benchmark on the training period.
     model = Pipeline([
         ("preprocess", preprocessing),
         ("classifier", LogisticRegression(max_iter=2_000, solver="liblinear")),
     ])
     model.fit(X_train, y_train)
+
+    # Step 8: evaluate logistic and constant baselines on the untouched test set.
     probabilities = model.predict_proba(X_test)[:, 1]
     metrics = evaluate_predictions(
         y_test, probabilities, config["evaluation"]["threshold"], output
@@ -99,6 +112,7 @@ def run(config_path: str | Path, output_dir: str | Path) -> dict:
         "log_loss": float(log_loss(y_test, constant)),
     }
 
+    # Step 9: persist the benchmark model, feature list, and metrics.
     joblib.dump(model, output / "model.joblib")
     (output / "features.json").write_text(
         json.dumps(list(X_train.columns), indent=2) + "\n", encoding="utf-8"
@@ -106,6 +120,8 @@ def run(config_path: str | Path, output_dir: str | Path) -> dict:
     (output / "metrics.json").write_text(
         json.dumps(metrics, indent=2) + "\n", encoding="utf-8"
     )
+
+    # Step 10: record temporal lineage and customer overlap, then return metrics.
     metadata = {
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "model_type": "logistic_regression",
@@ -130,10 +146,13 @@ def run(config_path: str | Path, output_dir: str | Path) -> dict:
 
 
 def main() -> None:
+    # Step 1: parse the shared config and benchmark output directory.
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/baseline.yaml")
     parser.add_argument("--output-dir", default="artifacts/prepricing_logistic")
     args = parser.parse_args()
+
+    # Step 2: execute the complete benchmark workflow.
     run(args.config, args.output_dir)
 
 
