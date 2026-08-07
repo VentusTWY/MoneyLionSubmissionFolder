@@ -7,13 +7,25 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from importlib import metadata
 from pathlib import Path
 from typing import Protocol
 from urllib.parse import unquote, urlparse
 
 import joblib
+
+
+TRAINING_DEPENDENCIES = (
+    "joblib",
+    "lightgbm",
+    "pandas",
+    "pyarrow",
+    "PyYAML",
+    "scikit-learn",
+)
 
 
 def utc_now() -> str:
@@ -38,6 +50,23 @@ def code_revision() -> str | None:
         ).strip()
     except (OSError, subprocess.CalledProcessError):
         return None
+
+
+def runtime_provenance(
+    requirements_path: str | Path,
+    dependencies: tuple[str, ...] = TRAINING_DEPENDENCIES,
+) -> dict:
+    """Describe the actual training runtime and its declared dependency set."""
+    requirements_path = Path(requirements_path)
+    return {
+        "python_version": sys.version.split()[0],
+        "dependencies": {
+            dependency: metadata.version(dependency)
+            for dependency in dependencies
+        },
+        "requirements_file": requirements_path.name,
+        "requirements_sha256": sha256(requirements_path),
+    }
 
 
 def write_json(path: str | Path, value: object) -> None:
@@ -80,16 +109,37 @@ def evaluate_gates(
     gates.append({"name": "minimum_roc_auc", "passed": metrics["roc_auc"] >= float(config.get("minimum_roc_auc", 0.5))})
     gates.append({"name": "maximum_log_loss", "passed": metrics["log_loss"] <= float(config.get("maximum_log_loss", 1.0))})
 
-    # Step 4: when available, prevent unacceptable regression from the champion.
+    # Step 4: compare with the champion only when both used the same evaluation set.
     if champion_metrics:
-        tolerance = float(config.get("roc_auc_regression_tolerance", 0.01))
-        gates.append({
-            "name": "champion_roc_auc_tolerance",
-            "passed": metrics["roc_auc"] >= champion_metrics["roc_auc"] - tolerance,
-        })
+        challenger_fingerprint = metrics.get("evaluation_fingerprint")
+        champion_fingerprint = champion_metrics.get("evaluation_fingerprint")
+        comparable = bool(
+            challenger_fingerprint
+            and champion_fingerprint
+            and challenger_fingerprint == champion_fingerprint
+        )
+        comparison = {
+            "name": "champion_evaluation_comparability",
+            "passed": True if comparable else None,
+            "applied": comparable,
+        }
+        if not comparable:
+            comparison["reason"] = (
+                "Champion-relative gate skipped because evaluation fingerprints "
+                "are missing or different"
+            )
+        gates.append(comparison)
+        if comparable:
+            tolerance = float(config.get("roc_auc_regression_tolerance", 0.01))
+            gates.append({
+                "name": "champion_roc_auc_tolerance",
+                "passed": metrics["roc_auc"] >= champion_metrics["roc_auc"] - tolerance,
+                "applied": True,
+            })
 
     # Step 5: pass only when every individual gate succeeds.
-    return {"passed": all(item["passed"] for item in gates), "gates": gates}
+    applied_gates = [item for item in gates if item.get("applied", True)]
+    return {"passed": all(item["passed"] for item in applied_gates), "gates": gates}
 
 
 class ModelRegistry(Protocol):

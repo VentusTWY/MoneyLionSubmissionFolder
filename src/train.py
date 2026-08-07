@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -63,6 +64,32 @@ def customer_overlap(left: pd.DataFrame, right: pd.DataFrame) -> int:
     return len(left_customers & right_customers)
 
 
+def evaluation_fingerprint(
+    frame: pd.DataFrame,
+    target: str,
+    label_config: dict,
+    evaluation_config: dict,
+) -> str:
+    """Hash evaluation identities, outcomes, and policy without persisting PII."""
+    rows = [
+        {
+            "loan_id": str(loan_id),
+            "application_date": str(application_date),
+            "target": int(outcome),
+        }
+        for loan_id, application_date, outcome in frame[
+            ["loanId", "applicationDate", target]
+        ].itertuples(index=False, name=None)
+    ]
+    payload = {
+        "rows": rows,
+        "label": label_config,
+        "evaluation": evaluation_config,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def run(config_path: str | Path) -> dict:
     # Step 1: load the experiment configuration and prepare its output directory.
     config = load_config(config_path)
@@ -114,6 +141,12 @@ def run(config_path: str | Path) -> dict:
     metrics["train_rows"] = int(len(train_frame))
     metrics["validation_rows"] = int(len(valid_frame))
     metrics["test_rows"] = int(len(test_frame))
+    metrics["evaluation_fingerprint"] = evaluation_fingerprint(
+        test_frame,
+        target,
+        config["label"],
+        config["evaluation"],
+    )
 
     # Step 9: persist the model, ordered features, schema, and evaluation metrics.
     joblib.dump(model, output / "model.joblib")
@@ -133,6 +166,12 @@ def run(config_path: str | Path) -> dict:
         "test_application_min": str(test_frame["applicationDate"].min()),
         "test_application_max": str(test_frame["applicationDate"].max()),
         "loan_rows_with_null_id": int(loans["loanId"].isna().sum()),
+        "duplicate_non_null_loan_ids": int(
+            loans["loanId"].dropna().duplicated().sum()
+        ),
+        "duplicate_non_null_clarity_ids": int(
+            clarity["underwritingid"].dropna().duplicated().sum()
+        ),
         "unfunded_terminal_outcomes_quarantined": int(len(quarantined_outcomes)),
         "clarity_match_rate": float(joined["_clarity_join"].eq("both").mean()),
         "train_validation_customer_overlap": customer_overlap(train_frame, valid_frame),

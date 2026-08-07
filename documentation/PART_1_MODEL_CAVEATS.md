@@ -1,8 +1,5 @@
 # Model Assumptions and Caveats
 
-> This supporting model-governance note is not part of the two-page Part 2
-> response.
-
 ## Prediction point
 
 The primary POC model scores before pricing and excludes `apr` and
@@ -69,4 +66,3 @@ fairness policy and protected-attribute handling require legal ownership.
 - Affordability, pricing, and maximum-risk policies
 - Monitoring groups, fairness tolerances, and legal constraints
 - Retraining cadence, gate limits, owners, and rollback authority
-

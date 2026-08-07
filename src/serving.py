@@ -3,24 +3,83 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 import time
 import uuid
+from datetime import date, datetime, timezone
 from hmac import compare_digest
 from pathlib import Path
+from typing import Literal
 
 import joblib
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.requests import Request
 
 from src.features import transform_features
 from src.mlops import ModelRegistry, create_registry, verify_bundle
 
 
+service_logger = logging.getLogger("loan_risk.serving")
+
+
 class PredictionRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
-    applicationDate: str
+    applicationDate: datetime | date
+
+
+class PredictionResponse(BaseModel):
+    adverse_probability: float
+    risk_band: Literal["low", "medium", "high"]
+    decision: Literal["pass", "review", "reject"]
+    model_version: str
+    feature_contract_version: str
+    request_id: str
+
+
+class ModelInfoResponse(BaseModel):
+    model_version: str
+    feature_contract_version: str
+    decision_threshold: float
+    review_threshold: float
+    reject_threshold: float
+
+
+class ModelSummary(BaseModel):
+    version: str
+    created_at_utc: str | None = None
+    feature_contract_version: str | None = None
+    status: str | None = None
+    metrics: dict[str, float]
+    is_active: bool
+    is_previous: bool
+
+
+class ModelListResponse(BaseModel):
+    models: list[ModelSummary]
+
+
+class ChampionPointer(BaseModel):
+    version: str
+    previous_version: str | None = None
+    updated_at_utc: str
+    reason: str
+    actor: str
+
+
+class ChampionResponse(BaseModel):
+    champion: ChampionPointer
+
+
+class LiveResponse(BaseModel):
+    status: Literal["live"]
+
+
+class ReadyResponse(BaseModel):
+    status: Literal["ready"]
+    model_version: str
 
 
 class ModelChangeRequest(BaseModel):
@@ -138,13 +197,47 @@ def create_app(
     # Step 1: import optional web dependencies and produce an actionable failure.
     try:
         from fastapi import FastAPI, Header, HTTPException
+        from fastapi.encoders import jsonable_encoder
+        from fastapi.exceptions import RequestValidationError
         from fastapi.middleware.cors import CORSMiddleware
-        from fastapi.responses import PlainTextResponse
+        from fastapi.responses import JSONResponse, PlainTextResponse
     except ImportError as exc:  # pragma: no cover - dependency error is actionable
         raise RuntimeError("Install FastAPI dependencies from requirements.txt") from exc
 
     # Step 2: create the versioned FastAPI application.
     app = FastAPI(title="Loan Risk API", version="1")
+
+    # Assign a server-generated correlation ID to every response. Prediction
+    # requests also emit one metadata-only JSON event; request bodies and feature
+    # values are deliberately excluded.
+    @app.middleware("http")
+    async def request_observability(request: Request, call_next):
+        request.state.request_id = str(uuid.uuid4())
+        started = time.perf_counter()
+        status_code = 500
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            response.headers["X-Request-ID"] = request.state.request_id
+            return response
+        finally:
+            if request.url.path in {"/v1/predict", "/v1/predict/batch"}:
+                with predictor_lock:
+                    event = {
+                        "event": "prediction_request",
+                        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                        "request_id": request.state.request_id,
+                        "path": request.url.path,
+                        "status_code": status_code,
+                        "latency_seconds": time.perf_counter() - started,
+                        "model_version": predictor.version,
+                        "feature_contract_version": predictor.contract["name"],
+                    }
+                for field in ("decision", "decision_counts", "result_count", "error_category"):
+                    value = getattr(request.state, field, None)
+                    if value is not None:
+                        event[field] = value
+                service_logger.info(json.dumps(event, sort_keys=True))
 
     # Step 3: resolve the allow-list of trusted UI origins.
     ui_origins = [
@@ -169,8 +262,35 @@ def create_app(
     metrics = ServiceMetrics()
     configured_admin_key = admin_api_key if admin_api_key is not None else os.environ.get("ADMIN_API_KEY")
 
+    def request_id(request: Request) -> str:
+        return getattr(request.state, "request_id", str(uuid.uuid4()))
+
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_error(request: Request, exc: RequestValidationError):
+        request.state.error_category = "request_validation"
+        return JSONResponse(
+            status_code=422,
+            content=jsonable_encoder({
+                "detail": exc.errors(),
+                "request_id": request_id(request),
+            }),
+        )
+
+    @app.exception_handler(HTTPException)
+    async def http_error(request: Request, exc: HTTPException):
+        if not getattr(request.state, "error_category", None):
+            request.state.error_category = "http_error"
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=jsonable_encoder({
+                "detail": exc.detail,
+                "request_id": request_id(request),
+            }),
+            headers=exc.headers,
+        )
+
     # Step 6: centralise prediction timing, error translation, and observations.
-    def execute(payload: dict):
+    def execute(payload: dict, request: Request):
         started = time.perf_counter()
         result = None
         try:
@@ -178,25 +298,40 @@ def create_app(
                 result = predictor.predict(payload)
             return result
         except ValueError as exc:
+            request.state.error_category = "feature_validation"
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         finally:
             metrics.observe(time.perf_counter() - started, result)
 
     # Step 7: register single and bounded-batch prediction endpoints.
-    @app.post("/v1/predict")
-    async def predict(payload: PredictionRequest):
-        result = execute(payload.model_dump())
-        result["request_id"] = str(uuid.uuid4())
+    @app.post("/v1/predict", response_model=PredictionResponse)
+    async def predict(payload: PredictionRequest, request: Request):
+        result = execute(payload.model_dump(mode="json", exclude_none=True), request)
+        result["request_id"] = request_id(request)
+        request.state.decision = result["decision"]
+        request.state.result_count = 1
         return result
 
-    @app.post("/v1/predict/batch")
-    async def predict_batch(payloads: list[PredictionRequest]):
+    @app.post("/v1/predict/batch", response_model=list[PredictionResponse])
+    async def predict_batch(payloads: list[PredictionRequest], request: Request):
         if len(payloads) > batch_limit:
+            request.state.error_category = "batch_limit"
             raise HTTPException(status_code=413, detail=f"Batch limit is {batch_limit}")
-        return [execute(payload.model_dump()) for payload in payloads]
+        results = [
+            execute(payload.model_dump(mode="json", exclude_none=True), request)
+            for payload in payloads
+        ]
+        for result in results:
+            result["request_id"] = request_id(request)
+        request.state.result_count = len(results)
+        request.state.decision_counts = {
+            decision: sum(result["decision"] == decision for result in results)
+            for decision in ("pass", "review", "reject")
+        }
+        return results
 
     # Step 8: expose active model metadata for traceability.
-    @app.get("/v1/model")
+    @app.get("/v1/model", response_model=ModelInfoResponse)
     def model_info():
         with predictor_lock:
             return {
@@ -218,12 +353,12 @@ def create_app(
     def reload_champion() -> LoanRiskPredictor:
         return LoanRiskPredictor.from_registry(resolved_registry)
 
-    @app.get("/v1/admin/models")
+    @app.get("/v1/admin/models", response_model=ModelListResponse)
     def admin_models(x_admin_api_key: str | None = Header(default=None)):
         require_admin(x_admin_api_key)
         return {"models": resolved_registry.list_versions()}
 
-    @app.post("/v1/admin/models/{version}/promote")
+    @app.post("/v1/admin/models/{version}/promote", response_model=ChampionResponse)
     def promote_model(version: str, change: ModelChangeRequest, x_admin_api_key: str | None = Header(default=None)):
         nonlocal predictor
         require_admin(x_admin_api_key)
@@ -246,7 +381,7 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         return {"champion": pointer}
 
-    @app.post("/v1/admin/models/rollback")
+    @app.post("/v1/admin/models/rollback", response_model=ChampionResponse)
     def rollback_model(change: ModelChangeRequest, x_admin_api_key: str | None = Header(default=None)):
         nonlocal predictor
         require_admin(x_admin_api_key)
@@ -269,11 +404,11 @@ def create_app(
         return {"champion": pointer}
 
     # Step 9: expose separate process liveness and model readiness checks.
-    @app.get("/health/live")
+    @app.get("/health/live", response_model=LiveResponse)
     def live():
         return {"status": "live"}
 
-    @app.get("/health/ready")
+    @app.get("/health/ready", response_model=ReadyResponse)
     def ready():
         with predictor_lock:
             return {"status": "ready", "model_version": predictor.version}

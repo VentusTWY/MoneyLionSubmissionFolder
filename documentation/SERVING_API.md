@@ -37,7 +37,8 @@ schema determines the remaining required fields. For the bundled champion, the
 client-supplied non-null fields are `payFrequency`, `loanAmount`, `state`,
 `leadType`, and `leadCost`. Nullable history and Clarity fields may be omitted.
 `has_clarity_report` may also be omitted; the service derives it from the
-presence of Clarity fields. Do not send post-decision or repayment fields.
+presence of Clarity fields. `applicationDate` accepts an ISO date or timestamp.
+Do not send post-decision or repayment fields.
 
 ```bash
 curl -s -X POST http://localhost:8000/v1/predict \
@@ -72,7 +73,8 @@ version values in this example are illustrative.
 
 Invalid JSON, a missing `applicationDate`, or an invalid request shape returns
 `422`. Feature-contract failures, including missing required model features or
-an invalid application date, also return `422` with a `detail` message.
+an invalid application date, also return `422` with a `detail` message. Handled
+error bodies include `request_id` for support correlation.
 
 ### `POST /v1/predict/batch`
 
@@ -85,8 +87,8 @@ curl -s -X POST http://localhost:8000/v1/predict/batch \
 ```
 
 A successful response (`200`) is an array of prediction results in input order.
-Batch results contain the same scoring and version fields as a single result,
-but currently do not include `request_id`. The default limit is 100 items and is
+Batch results contain the same fields as a single result. Every item contains
+the shared request ID for that batch call. The default limit is 100 items and is
 configured with `PREDICTION_BATCH_LIMIT`; a larger batch returns `413`.
 
 ### `GET /v1/model`
@@ -138,6 +140,12 @@ return `422`; missing versions, conflicts, or failed verification/reload return
 
 ## Operational endpoints
 
+Successful and handled-error responses include an `X-Request-ID` header.
+Prediction calls also emit a metadata-only JSON log containing the UTC
+timestamp, request ID, route, HTTP status, latency, model version,
+feature-contract version, result count or decision summary, and error category.
+Payloads, identifiers, and feature values are not logged.
+
 - `GET /health/live` returns `{"status":"live"}` when the process can answer.
 - `GET /health/ready` returns `{"status":"ready","model_version":"..."}`.
   Container and load-balancer readiness checks should use this route.
@@ -156,4 +164,3 @@ routes requires restarting the API process before it serves the new model.
 | `PREDICTION_BATCH_LIMIT` | `100` | Maximum applications accepted by one batch request. |
 | `ADMIN_API_KEY` | unset | Server-side secret enabling administrative routes. |
 | `UI_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed by CORS. |
-

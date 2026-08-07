@@ -12,7 +12,8 @@ from pathlib import Path
 import yaml
 
 from src.mlops import (
-    code_revision, create_registry, evaluate_gates, sha256, utc_now, write_json,
+    code_revision, create_registry, evaluate_gates, runtime_provenance, sha256,
+    utc_now, write_json,
 )
 from src.serving import LoanRiskPredictor
 from src.train import load_config, run
@@ -38,6 +39,48 @@ def _smoke_request(schema: dict) -> dict:
         else:
             request[item["name"]] = 0
     return request
+
+
+def build_data_quality_report(metrics: dict, cutoff: dict) -> dict:
+    """Build the successful-run quality report from measured validation evidence."""
+    distribution = metrics["target_distribution"]
+    target_classes = sum(
+        int(distribution.get(name, 0) > 0)
+        for name in ("negative_count", "positive_count")
+    )
+    checks = [
+        {
+            "name": "resolved_population_has_both_classes",
+            "passed": target_classes == 2,
+            "observed": target_classes,
+        },
+        {
+            "name": "non_null_loan_ids_are_unique",
+            "passed": cutoff["duplicate_non_null_loan_ids"] == 0,
+            "observed_duplicates": cutoff["duplicate_non_null_loan_ids"],
+        },
+        {
+            "name": "non_null_clarity_ids_are_unique",
+            "passed": cutoff["duplicate_non_null_clarity_ids"] == 0,
+            "observed_duplicates": cutoff["duplicate_non_null_clarity_ids"],
+        },
+    ]
+    return {
+        "passed": all(check["passed"] for check in checks),
+        "checks": checks,
+        "target_classes": target_classes,
+        "resolved_rows": distribution["rows"],
+        "null_loan_ids": cutoff["loan_rows_with_null_id"],
+        "duplicate_non_null_loan_ids": cutoff["duplicate_non_null_loan_ids"],
+        "duplicate_non_null_clarity_ids": cutoff[
+            "duplicate_non_null_clarity_ids"
+        ],
+        "clarity_match_rate": cutoff["clarity_match_rate"],
+        "outcome_maturity": {
+            "method": "terminal-status proxy",
+            "limitation": "status-event timestamps are unavailable",
+        },
+    }
 
 
 def execute(
@@ -69,18 +112,7 @@ def execute(
 
     # Step 4: assemble data-quality and smoke-test artifacts from the run outputs.
     cutoff = json.loads((run_dir / "data_cutoff.json").read_text())
-    quality = {
-        "passed": True,
-        "target_classes": 2,
-        "resolved_rows": metrics["target_distribution"]["rows"],
-        "null_loan_ids": cutoff["loan_rows_with_null_id"],
-        "duplicate_non_null_loan_ids": 0,
-        "clarity_match_rate": cutoff["clarity_match_rate"],
-        "outcome_maturity": {
-            "method": "terminal-status proxy",
-            "limitation": "status-event timestamps are unavailable",
-        },
-    }
+    quality = build_data_quality_report(metrics, cutoff)
     write_json(run_dir / "data_quality.json", quality)
     schema = json.loads((run_dir / "feature_schema.json").read_text())
     write_json(run_dir / "smoke_request.json", _smoke_request(schema))
@@ -105,6 +137,9 @@ def execute(
         "created_at_utc": utc_now(),
         "status": "accepted" if gates["passed"] else "rejected",
         "code_revision": code_revision(),
+        "runtime": runtime_provenance(
+            Path(__file__).resolve().parents[1] / "requirements.txt"
+        ),
         "feature_contract": config["feature_contract"],
         "target_name": config["label"]["target_name"],
         "decision_threshold": metrics["threshold"],

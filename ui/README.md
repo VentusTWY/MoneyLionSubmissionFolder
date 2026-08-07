@@ -26,7 +26,7 @@ npm run build
 
 Notes
 - The UI reads the API base URL from `NEXT_PUBLIC_API_BASE_URL` (default `http://localhost:8000`).
-# vinext-starter
+# Loan Risk Calculator UI
 
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
@@ -44,16 +44,7 @@ npm run dev
 npm run build
 ```
 
-This starter does not use `wrangler.jsonc`.
-
-## Included Shape
-
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
+The UI is built and served locally through Docker Compose or the commands below.
 
 ## Workspace Auth Headers
 

@@ -1,4 +1,7 @@
 import json
+import logging
+import sys
+from importlib import metadata
 from pathlib import Path
 
 import joblib
@@ -10,6 +13,7 @@ from src.mlops import (
     RegistryBackendNotInstalled,
     create_registry,
     evaluate_gates,
+    runtime_provenance,
     sha256,
     write_json,
 )
@@ -47,6 +51,58 @@ def test_rejected_gate_does_not_pass():
         {"target_classes": 2},
     )
     assert result["passed"] is False
+
+
+def test_champion_relative_gate_requires_matching_evaluation_fingerprint():
+    config = {
+        "minimum_test_rows": 100,
+        "minimum_roc_auc": 0.65,
+        "maximum_log_loss": 0.75,
+        "roc_auc_regression_tolerance": 0.01,
+    }
+    challenger = {
+        "test_rows": 1000,
+        "roc_auc": 0.79,
+        "log_loss": 0.5,
+        "evaluation_fingerprint": "same-rows",
+    }
+    quality = {"target_classes": 2}
+
+    comparable = evaluate_gates(
+        challenger,
+        {"roc_auc": 0.80, "evaluation_fingerprint": "same-rows"},
+        config,
+        quality,
+    )
+    different = evaluate_gates(
+        challenger,
+        {"roc_auc": 0.99, "evaluation_fingerprint": "different-rows"},
+        config,
+        quality,
+    )
+
+    comparable_by_name = {gate["name"]: gate for gate in comparable["gates"]}
+    different_by_name = {gate["name"]: gate for gate in different["gates"]}
+    assert comparable_by_name["champion_evaluation_comparability"]["applied"] is True
+    assert comparable_by_name["champion_roc_auc_tolerance"]["passed"] is True
+    assert different_by_name["champion_evaluation_comparability"]["applied"] is False
+    assert different_by_name["champion_evaluation_comparability"]["passed"] is None
+    assert "champion_roc_auc_tolerance" not in different_by_name
+    assert different["passed"] is True
+
+
+def test_runtime_provenance_records_actual_runtime_and_requirements(tmp_path):
+    requirements = tmp_path / "requirements.txt"
+    requirements.write_text("joblib==1.5.1\n", encoding="utf-8")
+
+    result = runtime_provenance(requirements, dependencies=("joblib",))
+
+    assert result == {
+        "python_version": sys.version.split()[0],
+        "dependencies": {"joblib": metadata.version("joblib")},
+        "requirements_file": "requirements.txt",
+        "requirements_sha256": sha256(requirements),
+    }
 
 
 def test_registry_factory_supports_paths_and_file_uris(tmp_path):
@@ -97,6 +153,24 @@ def test_failed_smoke_restores_champion(tmp_path):
     assert registry.champion()["version"] == "v1"
 
 
+def test_rejected_candidate_never_changes_champion(tmp_path):
+    registry = LocalRegistry(tmp_path / "registry")
+    registry.register(make_bundle(tmp_path, "v1"), "v1")
+    registry.promote("v1")
+    registry.register(make_bundle(tmp_path, "v2"), "v2")
+    gates = evaluate_gates(
+        {"test_rows": 10, "roc_auc": 0.5, "log_loss": 0.9},
+        None,
+        {"minimum_test_rows": 100, "minimum_roc_auc": 0.65, "maximum_log_loss": 0.75},
+        {"target_classes": 2},
+    )
+
+    if gates["passed"]:
+        registry.promote("v2")
+
+    assert registry.champion()["version"] == "v1"
+
+
 def test_checksum_mismatch_fails_readiness(tmp_path):
     registry = LocalRegistry(tmp_path / "registry")
     destination = registry.register(make_bundle(tmp_path, "v1"), "v1")
@@ -110,22 +184,58 @@ def test_checksum_mismatch_fails_readiness(tmp_path):
         raise AssertionError("Expected corrupt bundle to fail")
 
 
-def test_api_health_prediction_and_batch_limit(tmp_path):
+def test_api_health_prediction_batch_errors_and_safe_logs(tmp_path, caplog):
     from fastapi.testclient import TestClient
 
     registry = LocalRegistry(tmp_path / "registry")
     registry.register(make_bundle(tmp_path, "v1"), "v1")
     registry.promote("v1")
-    client = TestClient(create_app(registry.root, batch_limit=1))
+    client = TestClient(create_app(registry.root, batch_limit=2))
 
     assert client.get("/health/ready").json()["model_version"] == "v1"
-    response = client.post(
-        "/v1/predict", json={"applicationDate": "2020-01-01", "loanAmount": 5.0}
-    )
+    payload = {
+        "applicationDate": "2020-01-01",
+        "loanAmount": 5.0,
+        "anon_ssn": "must-not-appear-in-logs",
+    }
+    with caplog.at_level(logging.INFO, logger="loan_risk.serving"):
+        response = client.post("/v1/predict", json=payload)
     assert response.status_code == 200
     assert response.json()["model_version"] == "v1"
+    assert response.json()["request_id"] == response.headers["X-Request-ID"]
+    event = json.loads(caplog.records[-1].getMessage())
+    assert event["request_id"] == response.json()["request_id"]
+    assert event["decision"] == response.json()["decision"]
+    assert event["timestamp_utc"].endswith("+00:00")
+    assert "must-not-appear-in-logs" not in caplog.text
+    assert "anon_ssn" not in caplog.text
+
     item = {"applicationDate": "2020-01-01", "loanAmount": 5.0}
-    assert client.post("/v1/predict/batch", json=[item, item]).status_code == 413
+    batch = client.post("/v1/predict/batch", json=[item, item])
+    assert batch.status_code == 200
+    assert {result["request_id"] for result in batch.json()} == {
+        batch.headers["X-Request-ID"]
+    }
+    too_large = client.post("/v1/predict/batch", json=[item, item, item])
+    assert too_large.status_code == 413
+    assert too_large.json()["request_id"] == too_large.headers["X-Request-ID"]
+
+    missing_feature = client.post(
+        "/v1/predict", json={"applicationDate": "2020-01-01"}
+    )
+    assert missing_feature.status_code == 422
+    assert missing_feature.json()["request_id"] == missing_feature.headers["X-Request-ID"]
+
+    invalid_date = client.post(
+        "/v1/predict", json={"applicationDate": "not-a-date", "loanAmount": 5.0}
+    )
+    assert invalid_date.status_code == 422
+    assert invalid_date.json()["request_id"] == invalid_date.headers["X-Request-ID"]
+
+    openapi = client.get("/openapi.json").json()
+    schemas = openapi["components"]["schemas"]
+    assert "PredictionResponse" in schemas
+    assert "ModelInfoResponse" in schemas
     assert "ml_prediction_requests_total" in client.get("/metrics").text
 
 
