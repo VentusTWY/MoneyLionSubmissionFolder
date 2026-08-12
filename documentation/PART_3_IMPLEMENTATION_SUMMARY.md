@@ -30,15 +30,18 @@ as production extensions rather than simulated.
 
 ```text
 src/
-  api.py          # environment-configured ASGI entry point
-  data.py         # source loading, schema checks, and Clarity join
-  labels.py       # resolved population and adverse-outcome target
-  features.py     # shared transformation and persisted feature schema
-  train.py        # temporal split, LightGBM training, and artifacts
-  evaluate.py     # predictive and threshold metrics
+  training/
+    data.py       # source loading, schema checks, and Clarity join
+    labels.py     # resolved population and adverse-outcome target
+    features.py   # shared transformation and persisted feature schema
+    train.py      # temporal split, LightGBM training, and artifacts
+    evaluate.py   # predictive and threshold metrics
+    benchmark.py  # logistic and constant reference models
+    pipeline.py   # end-to-end train, gate, register, and promote orchestration
+  serving/
+    predictor.py  # predictor, API contracts, routes, logs, and metrics
+    api.py        # environment-configured ASGI entry point
   mlops.py        # gates, verification, registry, promotion, and rollback
-  pipeline.py     # end-to-end orchestration
-  serving.py      # predictor, API contracts, routes, logs, and metrics
   monitoring.py   # PSI drift and delayed-performance reports
 configs/          # baseline, promotion, and monitoring configuration
 tests/            # unit and integration-style tests
@@ -48,8 +51,10 @@ docker-compose.yml
 Makefile
 ```
 
-The flat module structure keeps the assessment easy to run and review. The same
-boundaries can be split into packages or services as the implementation grows.
+The package structure separates offline model development and orchestration
+from the online serving runtime. The shared feature transformer remains in the
+training package and is imported by serving so both paths use the same persisted
+feature contract rather than duplicating transformation logic.
 
 ## 1. Contracts and training-serving parity
 

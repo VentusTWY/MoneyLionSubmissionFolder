@@ -87,6 +87,8 @@ npm run dev
 - For implementation status, remaining work, and the recommended demo sequence,
   see [`documentation/PART_3_IMPLEMENTATION_SUMMARY.md`](documentation/PART_3_IMPLEMENTATION_SUMMARY.md).
 - For model metrics and caveats see `documentation/`.
+- Representative workload-owned AWS resources and the shared-platform handoff
+  are documented under [`infra/terraform/`](infra/terraform/README.md).
 
 ## Registry backend configuration
 

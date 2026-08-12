@@ -18,7 +18,7 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.requests import Request
 
-from src.features import transform_features
+from src.training.features import transform_features
 from src.mlops import ModelRegistry, create_registry, verify_bundle
 
 

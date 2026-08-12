@@ -1,1 +1,1 @@
-"""Baseline credit-risk modelling package."""
+"""Loan-risk training, serving, monitoring, and model-operations package."""

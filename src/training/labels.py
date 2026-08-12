@@ -6,23 +6,7 @@ import warnings
 
 import pandas as pd
 
-
-def find_unfunded_terminal_outcomes(loans: pd.DataFrame, config: dict) -> pd.DataFrame:
-    """Return terminal outcomes that contradict the funded-loan population.
-
-    These rows are quarantined from target construction. Returning them also
-    makes the anomaly available for data-quality reporting and investigation.
-    """
-    # Step 1: combine every configured terminal positive and negative status.
-    label = config["label"]
-    terminal_statuses = set(label["positive_statuses"]) | set(label["negative_statuses"])
-
-    # Step 2: identify funded records and records carrying a terminal outcome.
-    funded = loans["isFunded"].fillna(0).astype(int).eq(1)
-    terminal = loans["loanStatus"].isin(terminal_statuses)
-
-    # Step 3: return contradictory unfunded outcomes for quarantine and reporting.
-    return loans.loc[terminal & ~funded].copy()
+from src.training.data_quality import find_unfunded_terminal_outcomes
 
 
 def create_resolved_target(loans: pd.DataFrame, config: dict) -> pd.DataFrame:

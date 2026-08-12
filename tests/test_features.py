@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.features import build_features, feature_schema, transform_features
+from src.training.features import build_features, feature_schema, transform_features
 
 
 def test_features_exclude_outcomes_identifiers_and_payments():

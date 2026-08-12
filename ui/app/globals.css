@@ -113,6 +113,15 @@ input:focus, select:focus { border-color: #3e7564; box-shadow: 0 0 0 3px rgba(62
 .money-input { position: relative; display: block; }
 .money-input > span { position: absolute; z-index: 1; top: 15px; left: 14px; color: var(--muted); }
 .money-input input { padding-left: 29px; }
+.clarity-upload { display: grid; gap: 12px; margin: 28px 0; padding: 17px; border: 1px solid var(--line); background: #f8f8f3; }
+.clarity-upload strong, .clarity-upload small { display: block; }
+.clarity-upload strong { font-size: 13px; }
+.clarity-upload small, .clarity-upload p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+.clarity-upload-actions { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
+.clarity-file-button, .clarity-upload-actions a, .clarity-upload-actions button { width: auto; min-height: 38px; padding: 0 13px; display: inline-flex; align-items: center; border: 1px solid #799186; border-radius: 2px; background: white; color: var(--forest); font-size: 12px; font-weight: 700; text-decoration: none; cursor: pointer; }
+.clarity-file-button:hover, .clarity-upload-actions a:hover, .clarity-upload-actions button:hover { background: #e4eee8; }
+.clarity-file-button input { position: absolute; width: 1px; height: 1px; padding: 0; opacity: 0; pointer-events: none; }
+.clarity-upload .clarity-upload-success { color: #236247; font-weight: 650; }
 .check-row { display: flex; gap: 13px; align-items: flex-start; margin: 28px 0; padding: 17px; border: 1px solid var(--line); background: #f8f8f3; cursor: pointer; }
 .check-row input { width: 17px; height: 17px; margin: 2px 0 0; accent-color: var(--forest); }
 .check-row strong, .check-row small { display: block; }

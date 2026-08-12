@@ -2,7 +2,7 @@
 
 import os
 
-from src.serving import create_app
+from src.serving.predictor import create_app
 
 # Step 1: resolve the registry URI while preserving the legacy environment name.
 registry_uri = os.environ.get(

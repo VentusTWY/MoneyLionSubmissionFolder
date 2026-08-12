@@ -9,10 +9,10 @@ test:
 	$(PYTHON) -m pytest -q
 
 pipeline:
-	$(PYTHON) -m src.pipeline --config configs/baseline.yaml --registry "$(MODEL_REGISTRY_URI)"
+	$(PYTHON) -m src.training.pipeline --config configs/baseline.yaml --registry "$(MODEL_REGISTRY_URI)"
 
 serve:
-	$(PYTHON) -m uvicorn src.api:app --host 0.0.0.0 --port 8000
+	$(PYTHON) -m uvicorn src.serving.api:app --host 0.0.0.0 --port 8000
 
 ui:
 	cd ui && npm install && npm run dev

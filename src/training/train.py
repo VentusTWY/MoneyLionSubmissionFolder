@@ -13,12 +13,12 @@ import lightgbm as lgb
 import pandas as pd
 import yaml
 
-from src.data import join_clarity, load_training_inputs
-from src.evaluate import evaluate_predictions
-from src.features import build_features, feature_schema
-from src.labels import (
+from src.training.data import join_clarity, load_training_inputs
+from src.training.data_quality import find_unfunded_terminal_outcomes
+from src.training.evaluate import evaluate_predictions
+from src.training.features import build_features, feature_schema
+from src.training.labels import (
     create_resolved_target,
-    find_unfunded_terminal_outcomes,
     target_distribution,
 )
 

@@ -17,7 +17,7 @@ from src.mlops import (
     sha256,
     write_json,
 )
-from src.serving import LoanRiskPredictor, create_app
+from src.serving.predictor import LoanRiskPredictor, create_app
 
 
 def make_bundle(root: Path, version: str) -> Path:

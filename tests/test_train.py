@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.train import customer_overlap, evaluation_fingerprint, temporal_split
+from src.training.train import customer_overlap, evaluation_fingerprint, temporal_split
 
 
 def test_temporal_split_has_no_time_leakage():

@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, FormEvent } from "react";
+import type { ChangeEvent, CSSProperties, FormEvent } from "react";
 import { useEffect, useState } from "react";
 
 type Prediction = {
@@ -56,6 +56,9 @@ export default function Home() {
   const [mode, setMode] = useState<"single" | "batch">("single");
   const [batchInput, setBatchInput] = useState("[");
   const [batchResults, setBatchResults] = useState<Prediction[] | null>(null);
+  const [clarityReport, setClarityReport] = useState<ApplicationInput | null>(null);
+  const [clarityFileName, setClarityFileName] = useState("");
+  const [clarityError, setClarityError] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -78,6 +81,46 @@ export default function Home() {
 
   function updateField(name: string, value: string | boolean) {
     setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function uploadClarityReport(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setClarityError("");
+    try {
+      const parsed: unknown = JSON.parse(await file.text());
+      if (!isApplicationInput(parsed)) {
+        throw new Error("Clarity report must be a JSON object");
+      }
+
+      const supportedFields = Object.fromEntries(
+        Object.entries(parsed).filter(([name, value]) =>
+          value !== null &&
+          (name === "clearfraudscore" || name.startsWith(".underwritingdata")),
+        ),
+      );
+      if (Object.keys(supportedFields).length === 0) {
+        throw new Error("No recognized Clarity fields were found");
+      }
+
+      setClarityReport(supportedFields);
+      setClarityFileName(file.name);
+      setForm((current) => ({ ...current, has_clarity_report: true }));
+    } catch (uploadError) {
+      setClarityReport(null);
+      setClarityFileName("");
+      setForm((current) => ({ ...current, has_clarity_report: false }));
+      setClarityError(uploadError instanceof Error ? uploadError.message : "Could not read Clarity report");
+    }
+  }
+
+  function clearClarityReport() {
+    setClarityReport(null);
+    setClarityFileName("");
+    setClarityError("");
+    setForm((current) => ({ ...current, has_clarity_report: false }));
   }
 
   function batchContainsUnmappedCategories(): boolean {
@@ -142,6 +185,8 @@ export default function Home() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...form,
+            ...(clarityReport ?? {}),
+            has_clarity_report: clarityReport !== null,
             applicationDate: `${form.applicationDate}T12:00:00Z`,
             loanAmount: Number(form.loanAmount),
             leadCost: Number(form.leadCost),
@@ -353,10 +398,30 @@ export default function Home() {
               </p>
             )}
 
-          <label className="check-row">
-            <input type="checkbox" checked={form.has_clarity_report} onChange={(event) => updateField("has_clarity_report", event.target.checked)} />
-            <span><strong>Clarity report available</strong><small>Include the presence signal in this assessment.</small></span>
-          </label>
+          {mode === "single" ? (
+            <section className="clarity-upload" aria-labelledby="clarity-upload-heading">
+              <div>
+                <strong id="clarity-upload-heading">Clarity report</strong>
+                <small>Upload a flat JSON report to include its available underwriting values.</small>
+              </div>
+              <div className="clarity-upload-actions">
+                <label className="clarity-file-button">
+                  {clarityReport ? "Replace JSON" : "Upload JSON"}
+                  <input type="file" accept="application/json,.json" onChange={uploadClarityReport} />
+                </label>
+                <a href="/sample-clarity-report.json" download>Download sample</a>
+                {clarityReport ? <button type="button" onClick={clearClarityReport}>Remove</button> : null}
+              </div>
+              {clarityReport ? (
+                <p className="clarity-upload-success">
+                  {clarityFileName}: {Object.keys(clarityReport).length} Clarity values ready for scoring.
+                </p>
+              ) : (
+                <p>No report uploaded. Clarity values will be treated as missing.</p>
+              )}
+              {clarityError ? <p className="error-message">{clarityError}</p> : null}
+            </section>
+          ) : null}
 
           <button type="submit" disabled={loading || !serviceReady}>
             {loading ? "Calculating risk…" : "Run risk assessment"}<span aria-hidden="true">→</span>

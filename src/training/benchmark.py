@@ -16,11 +16,11 @@ from sklearn.metrics import average_precision_score, log_loss, roc_auc_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from src.data import join_clarity, load_training_inputs
-from src.evaluate import evaluate_predictions
-from src.features import build_features
-from src.labels import create_resolved_target
-from src.train import customer_overlap, load_config, temporal_split
+from src.training.data import join_clarity, load_training_inputs
+from src.training.evaluate import evaluate_predictions
+from src.training.features import build_features
+from src.training.labels import create_resolved_target
+from src.training.train import customer_overlap, load_config, temporal_split
 
 
 def run(config_path: str | Path, output_dir: str | Path) -> dict:
@@ -56,7 +56,7 @@ def run(config_path: str | Path, output_dir: str | Path) -> dict:
     )
     # sklearn's imputers may attempt a common numeric dtype for pandas
     # Categoricals. Convert only the benchmark copies before one-hot encoding;
-    # LightGBM continues to receive native categorical columns in src.train.
+    # LightGBM continues to receive native categorical columns in src.training.train.
     for frame in (X_train, X_valid, X_test):
         frame[categorical] = frame[categorical].astype("object")
     numeric = [column for column in X_train.columns if column not in categorical]

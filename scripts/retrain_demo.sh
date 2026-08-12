@@ -49,7 +49,7 @@ PY
 
 echo "Starting retrain demo from $BASE_CONFIG"
 echo "Challenger overrides: max_depth=$MAX_DEPTH, num_leaves=$NUM_LEAVES"
-"$PYTHON" -m src.pipeline --config "$CHALLENGER_CONFIG"
+"$PYTHON" -m src.training.pipeline --config "$CHALLENGER_CONFIG"
 
 echo
 echo "Registry versions (latest 10):"

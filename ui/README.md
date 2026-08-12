@@ -17,6 +17,15 @@ Batch input
   uses the existing API values `leadType: "others"` and `state: "Other"`; the UI
   shows the same warning for either value.
 
+Clarity report input
+- In Single mode, upload a flat JSON object containing `clearfraudscore` and/or
+  fields whose names begin with `.underwritingdata`.
+- Use **Download sample** beside the uploader for a synthetic partial report.
+- The browser discards identifiers and unrelated fields before sending the
+  report. Report availability is derived automatically from a valid upload.
+- Clarity fields omitted from a partial report remain missing, as permitted by
+  the promoted model's feature schema.
+
 Build for production
 ```bash
 cd ui

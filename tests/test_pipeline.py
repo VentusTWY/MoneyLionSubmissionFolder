@@ -1,4 +1,4 @@
-from src.pipeline import build_data_quality_report
+from src.training.data_quality import build_data_quality_report
 
 
 def test_data_quality_report_is_derived_from_observed_values():

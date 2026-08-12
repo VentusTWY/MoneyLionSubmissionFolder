@@ -17,3 +17,12 @@ ui/.wrangler/
 ui/.next/
 ui/dist/
 ui/build/
+
+# Terraform working data and local plans (configuration remains committed).
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars.local
+crash.log
+crash.*.log
