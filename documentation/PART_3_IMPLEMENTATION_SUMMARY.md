@@ -234,7 +234,7 @@ Run all tests with:
 make test
 ```
 
-The verified suite contains 28 passing tests. An isolated end-to-end pipeline
+The verified suite contains 29 passing tests. An isolated end-to-end pipeline
 run also produced an accepted candidate with runtime provenance, a non-sensitive
 evaluation fingerprint, three passing derived quality checks, and passing
 promotion gates.

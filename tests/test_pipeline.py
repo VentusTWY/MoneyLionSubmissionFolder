@@ -1,4 +1,14 @@
+from pathlib import Path
+
 from src.training.data_quality import build_data_quality_report
+from src.training.pipeline import training_requirements_path
+
+
+def test_pipeline_resolves_training_requirements_from_repository_root():
+    requirements = training_requirements_path()
+
+    assert requirements == Path(__file__).resolve().parents[1] / "requirements.txt"
+    assert requirements.is_file()
 
 
 def test_data_quality_report_is_derived_from_observed_values():

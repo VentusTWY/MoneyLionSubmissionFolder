@@ -20,6 +20,14 @@ from src.training.data_quality import build_data_quality_report
 from src.training.train import load_config, run
 
 
+def training_requirements_path() -> Path:
+    """Return the pinned training requirements file at the repository root."""
+    path = Path(__file__).resolve().parents[2] / "requirements.txt"
+    if not path.is_file():
+        raise FileNotFoundError(f"Training requirements not found: {path}")
+    return path
+
+
 def _run_id() -> str:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return f"{stamp}-{uuid.uuid4().hex[:8]}"
@@ -96,9 +104,7 @@ def execute(
         "created_at_utc": utc_now(),
         "status": "accepted" if gates["passed"] else "rejected",
         "code_revision": code_revision(),
-        "runtime": runtime_provenance(
-            Path(__file__).resolve().parents[1] / "requirements.txt"
-        ),
+        "runtime": runtime_provenance(training_requirements_path()),
         "feature_contract": config["feature_contract"],
         "target_name": config["label"]["target_name"],
         "decision_threshold": metrics["threshold"],

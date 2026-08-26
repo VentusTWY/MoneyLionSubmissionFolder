@@ -35,11 +35,15 @@ function isApplicationInput(value: unknown): value is ApplicationInput {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
+function currentUtcDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 const initialForm = {
-  applicationDate: new Date().toISOString().slice(0, 10),
+  applicationDate: currentUtcDate(),
   loanAmount: "500",
   leadCost: "25",
-    leadType: "bvMandatory",
+  leadType: "bvMandatory",
   payFrequency: "B",
   state: "CA",
   has_clarity_report: false,
@@ -179,6 +183,11 @@ export default function Home() {
     setBatchResults(null);
 
     try {
+      const today = currentUtcDate();
+      if (form.applicationDate > today) {
+        throw new Error("Application date cannot be later than today");
+      }
+
       if (mode === "single") {
         const response = await fetch(`${API_BASE}/v1/predict`, {
           method: "POST",
@@ -298,7 +307,7 @@ export default function Home() {
             <div className="form-grid">
             <label>
               Application date
-              <input type="date" required value={form.applicationDate} onChange={(event) => updateField("applicationDate", event.target.value)} />
+              <input type="date" required max={currentUtcDate()} value={form.applicationDate} onChange={(event) => updateField("applicationDate", event.target.value)} />
             </label>
             <label>
               Loan amount

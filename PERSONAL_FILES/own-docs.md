@@ -35,12 +35,3 @@ install venv install python
 5. need to validate model! offline validation step before raising the challenger
 6. logging real time results (online)
 7. application time data should enter drift monitoring immediately even without outcome label / ground truth
-
-# todo on thursday
-
-- update diagram manually
-- try running everything in a new folder
-- going through each component , able to explain
-- start and end date for train test
-- remember auc metrics
-- compare two models based on timeline / classification threshold

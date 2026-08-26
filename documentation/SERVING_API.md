@@ -38,7 +38,8 @@ client-supplied non-null fields are `payFrequency`, `loanAmount`, `state`,
 `leadType`, and `leadCost`. Nullable history and Clarity fields may be omitted.
 `has_clarity_report` may also be omitted; the service derives it from the
 presence of Clarity fields. `applicationDate` accepts an ISO date or timestamp.
-Do not send post-decision or repayment fields.
+It cannot be later than the current UTC date. Do not send post-decision or
+repayment fields.
 
 ```bash
 curl -s -X POST http://localhost:8000/v1/predict \

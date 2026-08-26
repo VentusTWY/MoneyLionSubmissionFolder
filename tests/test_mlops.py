@@ -232,6 +232,24 @@ def test_api_health_prediction_batch_errors_and_safe_logs(tmp_path, caplog):
     assert invalid_date.status_code == 422
     assert invalid_date.json()["request_id"] == invalid_date.headers["X-Request-ID"]
 
+    future_date = client.post(
+        "/v1/predict", json={"applicationDate": "2999-01-01", "loanAmount": 5.0}
+    )
+    assert future_date.status_code == 422
+    assert "applicationDate cannot be later than today" in str(
+        future_date.json()["detail"]
+    )
+    assert future_date.json()["request_id"] == future_date.headers["X-Request-ID"]
+
+    future_batch = client.post(
+        "/v1/predict/batch",
+        json=[{"applicationDate": "2999-01-01", "loanAmount": 5.0}],
+    )
+    assert future_batch.status_code == 422
+    assert "applicationDate cannot be later than today" in str(
+        future_batch.json()["detail"]
+    )
+
     openapi = client.get("/openapi.json").json()
     schemas = openapi["components"]["schemas"]
     assert "PredictionResponse" in schemas

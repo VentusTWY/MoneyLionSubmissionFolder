@@ -15,7 +15,7 @@ from typing import Literal
 
 import joblib
 import pandas as pd
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.requests import Request
 
 from src.training.features import transform_features
@@ -28,6 +28,16 @@ service_logger = logging.getLogger("loan_risk.serving")
 class PredictionRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
     applicationDate: datetime | date
+
+    @field_validator("applicationDate")
+    @classmethod
+    def application_date_cannot_be_in_the_future(
+        cls, value: datetime | date
+    ) -> datetime | date:
+        application_date = value.date() if isinstance(value, datetime) else value
+        if application_date > datetime.now(timezone.utc).date():
+            raise ValueError("applicationDate cannot be later than today")
+        return value
 
 
 class PredictionResponse(BaseModel):

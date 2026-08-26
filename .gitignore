@@ -10,8 +10,10 @@ __pycache__/
 artifacts/
 registry/
 data/raw/
+tmp/
 node_modules/
 MLE Assessment Guidelines.pdf
+MoneyLion Data Scientist Assessment Data Dictionary.pdf
 ui/node_modules/
 ui/.wrangler/
 ui/.next/
