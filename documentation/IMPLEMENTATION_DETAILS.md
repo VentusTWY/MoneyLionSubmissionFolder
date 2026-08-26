@@ -7,19 +7,22 @@
 
 - `configs/baseline.yaml` defines target policy, chronological split, LightGBM
   parameters, output location, and the `pre_pricing_v1` feature contract.
-- `src/data.py` validates and joins loan and Clarity inputs. Payment loading is a
+- `src/training/data.py` validates and joins loan and Clarity inputs. Payment loading is a
   separate outcome-audit path.
-- `src/labels.py` constructs the resolved funded-loan population and reports
+- `src/training/labels.py` constructs the resolved funded-loan population and reports
   inconsistent terminal outcomes.
-- `src/features.py` creates application-time components, enforces permanent
+- `src/training/features.py` creates application-time components, enforces permanent
   leakage exclusions, and applies configurable feature contracts.
-- `src/train.py` trains and evaluates the LightGBM candidate and writes a model,
+- `src/training/train.py` trains and evaluates the LightGBM candidate and writes a model,
   ordered feature list, metrics, threshold analysis, confusion matrix, and data
   cutoff metadata.
-- `src/benchmark.py` uses the same data and split to train an imputed,
+- `src/training/benchmark.py` uses the same data and split to train an imputed,
   one-hot-encoded, regularized logistic regression and reports a constant
   predictor for context.
-- `src/evaluate.py` implements common held-out metrics and threshold analysis.
+- `src/training/evaluate.py` implements common held-out metrics and threshold analysis.
+- `src/serving/predictor.py` contains champion loading, prediction contracts,
+  FastAPI routes, administration controls, and service metrics.
+- `src/serving/api.py` is the environment-configured ASGI entry point.
 - `tests/` covers labels, temporal ordering, leakage exclusions, and the
   pre-pricing feature contract.
 
@@ -27,8 +30,8 @@ Run from the repository root:
 
 ```bash
 python -m pytest -q
-python -m src.train --config configs/baseline.yaml
-python -m src.benchmark --config configs/baseline.yaml \
+python -m src.training.train --config configs/baseline.yaml
+python -m src.training.benchmark --config configs/baseline.yaml \
   --output-dir artifacts/prepricing_logistic
 ```
 
@@ -106,12 +109,13 @@ new application
   -> log prediction metadata for monitoring and audit
 ```
 
-The POC may expose this through a small FastAPI service with Pydantic request
-models. Suggested endpoints are `POST /predict`, `GET /health`, and
-`GET /model-info`. The service loads the champion once at startup and never
-re-trains during a prediction request. FastAPI is an interface choice, not a
-requirement of the model pipeline; a tested Python prediction interface remains
-the minimum implementation.
+The POC exposes this through a small FastAPI service with Pydantic request
+models. The implemented prediction, model, administration, health, readiness,
+metrics, and generated OpenAPI routes are catalogued in
+[`SERVING_API.md`](SERVING_API.md). The service loads the champion once at
+startup and never re-trains during a prediction request. FastAPI is an interface
+choice, not a requirement of the model pipeline; a tested Python prediction
+interface remains the minimum implementation.
 
 Inference validation should reject missing required fields, invalid types,
 out-of-policy ranges, feature-contract mismatches, and unexpected schema
@@ -130,7 +134,7 @@ full applications must not be written to ordinary logs.
 The eventual POC should run end-to-end with one command, for example:
 
 ```bash
-python -m src.pipeline --config configs/baseline.yaml
+python -m src.training.pipeline --config configs/baseline.yaml
 ```
 
 An interview demo should show a successful run, generated versioned artifacts,
@@ -145,14 +149,18 @@ and a failed smoke test restores the previous champion pointer.
 
 ## Implemented Part 3 vertical slice
 
-- `src.pipeline` creates a unique immutable run, trains the challenger, records
+- `src.training.pipeline` creates a unique immutable run, trains the challenger, records
   source and artifact checksums, writes data-quality and gate reports, registers
   the version, promotes it atomically, and performs a reload smoke prediction.
 - `src.mlops` implements hard/tolerance gates, immutable local versions, a lock,
   atomic champion-pointer replacement, an audit log, and manual/automatic rollback.
-- `src.features` is shared by training and inference and persists ordered fields,
+  Training and serving depend on a `ModelRegistry` protocol selected by
+  `MODEL_REGISTRY_URI`: `file://registry` uses the tested local implementation,
+  while `s3://bucket/prefix` is an explicit production extension point for an
+  S3 bundle store plus transactional DynamoDB metadata and locking.
+- `src.training.features` is shared by training and inference and persists ordered fields,
   logical types, nullability, and training category vocabularies.
-- `src.serving` supplies a framework-independent predictor and versioned FastAPI
+- `src.serving.predictor` supplies a framework-independent predictor and versioned FastAPI
   single/batch prediction, model-info, health, readiness, and metrics endpoints.
 - `src.monitoring` produces numeric PSI drift and model-version-specific delayed
   outcome reports.

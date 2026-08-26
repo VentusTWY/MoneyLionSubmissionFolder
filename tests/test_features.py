@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.features import build_features, feature_schema, transform_features
+from src.training.features import build_features, feature_schema, transform_features
 
 
 def test_features_exclude_outcomes_identifiers_and_payments():
@@ -85,3 +85,48 @@ def test_training_and_inference_transform_have_identical_order():
     )
     assert list(training.columns) == list(inference.columns)
     assert inference["state"].dtype == training["state"].dtype
+
+
+def test_invalid_application_date_is_rejected():
+    frame = pd.DataFrame({
+        "applicationDate": ["not-a-date"],
+        "loanAmount": [300.0],
+    })
+
+    try:
+        transform_features(frame)
+    except ValueError as exc:
+        assert "Invalid applicationDate" in str(exc)
+    else:
+        raise AssertionError("Expected invalid application date to fail")
+
+
+def test_unseen_category_uses_saved_unknown_category_handling():
+    training = pd.DataFrame({
+        "applicationDate": ["2020-01-01", "2020-01-02"],
+        "state": ["CA", "TX"],
+    })
+    schema = feature_schema(transform_features(training))
+
+    inference = transform_features(
+        pd.DataFrame({"applicationDate": ["2020-01-03"], "state": ["ZZ"]}),
+        feature_schema=schema,
+    )
+
+    assert pd.isna(inference.loc[0, "state"])
+
+
+def test_missing_nullable_clarity_feature_is_recreated():
+    training = pd.DataFrame({
+        "applicationDate": ["2020-01-01", "2020-01-02"],
+        "loanAmount": [300.0, 400.0],
+        ".underwritingdata.example": [1.0, None],
+    })
+    schema = feature_schema(transform_features(training))
+
+    inference = transform_features(
+        pd.DataFrame({"applicationDate": ["2020-01-03"], "loanAmount": [350.0]}),
+        feature_schema=schema,
+    )
+
+    assert pd.isna(inference.loc[0, ".underwritingdata.example"])

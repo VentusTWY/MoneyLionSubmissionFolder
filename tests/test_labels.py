@@ -1,9 +1,9 @@
 import pandas as pd
 import pytest
 
-from src.labels import (
+from src.training.data_quality import find_unfunded_terminal_outcomes
+from src.training.labels import (
     create_resolved_target,
-    find_unfunded_terminal_outcomes,
     target_distribution,
 )
 

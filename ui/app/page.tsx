@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, FormEvent } from "react";
+import type { ChangeEvent, CSSProperties, FormEvent } from "react";
 import { useEffect, useState } from "react";
 
 type Prediction = {
@@ -27,13 +27,23 @@ type ServiceMetrics = {
   bands: { low: number; medium: number; high: number };
 };
 
+type ApplicationInput = Record<string, unknown>;
+
+function isApplicationInput(value: unknown): value is ApplicationInput {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
+function currentUtcDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 const initialForm = {
-  applicationDate: new Date().toISOString().slice(0, 10),
+  applicationDate: currentUtcDate(),
   loanAmount: "500",
   leadCost: "25",
-    leadType: "bvMandatory",
+  leadType: "bvMandatory",
   payFrequency: "B",
   state: "CA",
   has_clarity_report: false,
@@ -50,6 +60,9 @@ export default function Home() {
   const [mode, setMode] = useState<"single" | "batch">("single");
   const [batchInput, setBatchInput] = useState("[");
   const [batchResults, setBatchResults] = useState<Prediction[] | null>(null);
+  const [clarityReport, setClarityReport] = useState<ApplicationInput | null>(null);
+  const [clarityFileName, setClarityFileName] = useState("");
+  const [clarityError, setClarityError] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -74,14 +87,55 @@ export default function Home() {
     setForm((current) => ({ ...current, [name]: value }));
   }
 
-  function batchContainsUnknowns(): boolean {
+  async function uploadClarityReport(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setClarityError("");
+    try {
+      const parsed: unknown = JSON.parse(await file.text());
+      if (!isApplicationInput(parsed)) {
+        throw new Error("Clarity report must be a JSON object");
+      }
+
+      const supportedFields = Object.fromEntries(
+        Object.entries(parsed).filter(([name, value]) =>
+          value !== null &&
+          (name === "clearfraudscore" || name.startsWith(".underwritingdata")),
+        ),
+      );
+      if (Object.keys(supportedFields).length === 0) {
+        throw new Error("No recognized Clarity fields were found");
+      }
+
+      setClarityReport(supportedFields);
+      setClarityFileName(file.name);
+      setForm((current) => ({ ...current, has_clarity_report: true }));
+    } catch (uploadError) {
+      setClarityReport(null);
+      setClarityFileName("");
+      setForm((current) => ({ ...current, has_clarity_report: false }));
+      setClarityError(uploadError instanceof Error ? uploadError.message : "Could not read Clarity report");
+    }
+  }
+
+  function clearClarityReport() {
+    setClarityReport(null);
+    setClarityFileName("");
+    setClarityError("");
+    setForm((current) => ({ ...current, has_clarity_report: false }));
+  }
+
+  function batchContainsUnmappedCategories(): boolean {
     if (mode !== "batch") return false;
     try {
       const payload = JSON.parse(batchInput);
       if (!Array.isArray(payload)) return false;
-      return payload.some((p: any) => {
-        const lt = (p.leadType || "").toString().toLowerCase();
-        const st = (p.state || "").toString();
+      return payload.some((application: unknown) => {
+        if (!isApplicationInput(application)) return false;
+        const lt = String(application.leadType ?? "").toLowerCase();
+        const st = String(application.state ?? "");
         return lt === "others" || st.toLowerCase() === "other";
       });
     } catch {
@@ -129,12 +183,19 @@ export default function Home() {
     setBatchResults(null);
 
     try {
+      const today = currentUtcDate();
+      if (form.applicationDate > today) {
+        throw new Error("Application date cannot be later than today");
+      }
+
       if (mode === "single") {
         const response = await fetch(`${API_BASE}/v1/predict`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...form,
+            ...(clarityReport ?? {}),
+            has_clarity_report: clarityReport !== null,
             applicationDate: `${form.applicationDate}T12:00:00Z`,
             loanAmount: Number(form.loanAmount),
             leadCost: Number(form.leadCost),
@@ -146,21 +207,23 @@ export default function Home() {
         await refreshMetrics();
       } else {
         // Batch mode: expect JSON array of application objects
-        let payload: any;
+        let payload: unknown;
         try {
           payload = JSON.parse(batchInput);
-          if (!Array.isArray(payload)) throw new Error("Batch input must be a JSON array");
-        } catch (parseErr) {
+          if (!Array.isArray(payload) || !payload.every(isApplicationInput)) {
+            throw new Error("Batch input must be a JSON array of application objects");
+          }
+        } catch {
           throw new Error("Invalid JSON batch input");
         }
         const response = await fetch(`${API_BASE}/v1/predict/batch`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload.map((p: any) => ({
-            ...p,
-            applicationDate: p.applicationDate ? `${p.applicationDate}T12:00:00Z` : `${form.applicationDate}T12:00:00Z`,
-            loanAmount: Number(p.loanAmount ?? form.loanAmount),
-            leadCost: Number(p.leadCost ?? form.leadCost),
+          body: JSON.stringify(payload.map((application) => ({
+            ...application,
+            applicationDate: application.applicationDate ? `${String(application.applicationDate)}T12:00:00Z` : `${form.applicationDate}T12:00:00Z`,
+            loanAmount: Number(application.loanAmount ?? form.loanAmount),
+            leadCost: Number(application.leadCost ?? form.leadCost),
           }))),
         });
         const body = await response.json();
@@ -195,6 +258,7 @@ export default function Home() {
           <span className={serviceReady ? "status-dot ready" : "status-dot"} />
           {serviceReady ? "Scoring service online" : "Scoring service offline"}
         </div>
+        <a className="staff-sign-in" href="/login?return_to=%2Fadmin">Admin login</a>
       </header>
 
       <section className="hero" id="top">
@@ -243,7 +307,7 @@ export default function Home() {
             <div className="form-grid">
             <label>
               Application date
-              <input type="date" required value={form.applicationDate} onChange={(event) => updateField("applicationDate", event.target.value)} />
+              <input type="date" required max={currentUtcDate()} value={form.applicationDate} onChange={(event) => updateField("applicationDate", event.target.value)} />
             </label>
             <label>
               Loan amount
@@ -260,7 +324,7 @@ export default function Home() {
                 <option value="lead">Standard lead</option>
                 <option value="organic">Organic</option>
                 <option value="prescreen">Pre-screen</option>
-                <option value="others">Others</option>
+                <option value="others">Other / unmapped</option>
               </select>
             </label>
             <label>
@@ -323,7 +387,7 @@ export default function Home() {
                 <option value="WV">West Virginia</option>
                 <option value="WI">Wisconsin</option>
                 <option value="WY">Wyoming</option>
-                <option value="Other">Unknown</option>
+                <option value="Other">Other / unmapped</option>
               </select>
             </label>
           </div>
@@ -336,17 +400,37 @@ export default function Home() {
               <p><small>Provide a JSON array of application objects. Missing fields will use the single-form defaults.</small></p>
             </div>
           )}
-            {/* Show warning when unknown categories are used */}
-            {((mode === "single" && (form.leadType === "others" || (form.state || "").toString().toLowerCase() === "other")) || batchContainsUnknowns()) && (
+            {/* Show a warning when unmapped categories are used. */}
+            {((mode === "single" && (form.leadType === "others" || (form.state || "").toString().toLowerCase() === "other")) || batchContainsUnmappedCategories()) && (
               <p className="warning-message" style={{ color: "#b04", marginTop: 8 }}>
-                Warning: one or more fields use an unknown category ("Others" or "Other"). These indicate new or unmapped data and may produce unexpected results.
+                Warning: one or more fields use “Other / unmapped”. The model can handle unseen categories, but the result may be less reliable.
               </p>
             )}
 
-          <label className="check-row">
-            <input type="checkbox" checked={form.has_clarity_report} onChange={(event) => updateField("has_clarity_report", event.target.checked)} />
-            <span><strong>Clarity report available</strong><small>Include the presence signal in this assessment.</small></span>
-          </label>
+          {mode === "single" ? (
+            <section className="clarity-upload" aria-labelledby="clarity-upload-heading">
+              <div>
+                <strong id="clarity-upload-heading">Clarity report</strong>
+                <small>Upload a flat JSON report to include its available underwriting values.</small>
+              </div>
+              <div className="clarity-upload-actions">
+                <label className="clarity-file-button">
+                  {clarityReport ? "Replace JSON" : "Upload JSON"}
+                  <input type="file" accept="application/json,.json" onChange={uploadClarityReport} />
+                </label>
+                <a href="/sample-clarity-report.json" download>Download sample</a>
+                {clarityReport ? <button type="button" onClick={clearClarityReport}>Remove</button> : null}
+              </div>
+              {clarityReport ? (
+                <p className="clarity-upload-success">
+                  {clarityFileName}: {Object.keys(clarityReport).length} Clarity values ready for scoring.
+                </p>
+              ) : (
+                <p>No report uploaded. Clarity values will be treated as missing.</p>
+              )}
+              {clarityError ? <p className="error-message">{clarityError}</p> : null}
+            </section>
+          ) : null}
 
           <button type="submit" disabled={loading || !serviceReady}>
             {loading ? "Calculating risk…" : "Run risk assessment"}<span aria-hidden="true">→</span>

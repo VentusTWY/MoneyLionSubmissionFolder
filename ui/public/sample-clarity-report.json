@@ -1,0 +1,14 @@
+{
+  "clearfraudscore": 650,
+  ".underwritingdataclarity.clearfraud.clearfraudinquiry.oneminuteago": 0,
+  ".underwritingdataclarity.clearfraud.clearfraudinquiry.tenminutesago": 0,
+  ".underwritingdataclarity.clearfraud.clearfraudinquiry.onehourago": 0,
+  ".underwritingdataclarity.clearfraud.clearfraudinquiry.twentyfourhoursago": 1,
+  ".underwritingdataclarity.clearfraud.clearfraudinquiry.sevendaysago": 1,
+  ".underwritingdataclarity.clearfraud.clearfraudinquiry.thirtydaysago": 2,
+  ".underwritingdataclarity.clearfraud.clearfraudinquiry.ninetydaysago": 3,
+  ".underwritingdataclarity.clearfraud.clearfraudinquiry.threesixtyfivedaysago": 5,
+  ".underwritingdataclarity.clearfraud.clearfraudindicator.totalnumberoffraudindicators": 0,
+  ".underwritingdataclarity.clearfraud.clearfraudindicator.driverlicenseformatinvalid": "False",
+  ".underwritingdataclarity.clearfraud.clearfraudidentityverification.overallmatchresult": "match"
+}

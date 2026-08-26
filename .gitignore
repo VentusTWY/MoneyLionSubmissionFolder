@@ -4,12 +4,27 @@ __pycache__/
 .DS_Store
 .pytest_cache/
 .vscode/
+.codex/
+.env
+.env.local
 artifacts/
 registry/
 data/raw/
+tmp/
 node_modules/
+MLE Assessment Guidelines.pdf
+MoneyLion Data Scientist Assessment Data Dictionary.pdf
 ui/node_modules/
 ui/.wrangler/
 ui/.next/
 ui/dist/
 ui/build/
+
+# Terraform working data and local plans (configuration remains committed).
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars.local
+crash.log
+crash.*.log

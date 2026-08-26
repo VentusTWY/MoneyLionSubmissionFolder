@@ -1,6 +1,7 @@
 pandas==2.3.1
 pyarrow==20.0.0
 lightgbm==4.6.0
+xgboost==3.4.1
 scikit-learn==1.7.1
 matplotlib==3.10.3
 PyYAML==6.0.2

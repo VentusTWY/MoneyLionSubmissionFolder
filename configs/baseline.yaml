@@ -1,4 +1,5 @@
 data:
+  # Place the source Parquet files in data/raw/ before running the pipeline.
   loans: "data/raw/loan.parquet"
   payments: "data/raw/payment.parquet"
   clarity: "data/raw/clarity_underwriting_variables.parquet"
